@@ -52,6 +52,25 @@ class MplCanvas(FigureCanvas):
         self.ax.set_xlim([grid[..., 0].min(), grid[..., 0].max()])
         self.ax.set_ylim([grid[..., 1].min(), grid[..., 1].max()])
 
+        self.create_cities()
+
+    def create_cities(self):
+        cities = utils.get_cities_coords()
+        cnameList = []
+        ccoordList = []
+        for k, v in cities.items():
+            cnameList.append(k)
+            ccoordList.append(v)
+        ccoord = np.vstack(ccoordList)
+        ccoord = utils.wgs84_to_radolan(ccoord)
+        x = ccoord[..., 0]
+        y = ccoord[..., 1]
+        self.ax.scatter(x, y, s=50, c='r')
+        for i, txt in enumerate(cnameList):
+            self.ax.annotate(txt, (x[i], y[i]),
+                             horizontalalignment='right',
+                             verticalalignment='top')
+
 
 class MplWidget(QtGui.QWidget):
     def __init__(self):
