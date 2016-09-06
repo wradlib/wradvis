@@ -99,6 +99,7 @@ class RadolanCanvas(SceneCanvas):
                            method='subdivide',
                            #interpolation='bicubic',
                            cmap=cmap,
+                           clim=(0,10),
                            parent=self.view.scene)
 
         # add transform to Image
