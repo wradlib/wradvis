@@ -48,7 +48,7 @@ class PropertiesWidget(QtGui.QWidget):
         self.hline = QtGui.QFrame()
         self.hline.setFrameShape(QtGui.QFrame.HLine)
         self.hline.setFrameShadow(QtGui.QFrame.Sunken)
-        self.dirname = os.getcwd()
+        self.dirname = os.path.join(os.getcwd(), "data/rw/20160529")
         self.dirLabel = LongLabel(self.dirname)
         self.filelist = sorted(
             glob.glob(os.path.join(self.dirname, "raa01*.gz")))
