@@ -11,6 +11,7 @@
 # Python 2/3 compatibility: for Python 2, you need to install configparser
 # see requirements.txt
 from configparser import ConfigParser
+import os
 
 # Initialise default configuration object
 
@@ -18,15 +19,12 @@ def init_conf():
 
     conf = ConfigParser()
 
-    conf['DEFAULT'] = {'ServerAliveInterval': '45',
-                         'Compression': 'yes',
-                         'CompressionLevel': '9'}
-    conf['bitbucket.org'] = {}
-    conf['bitbucket.org']['User'] = 'hg'
-    conf['topsecret.server.com'] = {}
-    topsecret = conf['topsecret.server.com']
-    topsecret['Port'] = '50022'     # mutates the parser
-    topsecret['ForwardX11'] = 'no'  # same here
-    conf['DEFAULT']['ForwardX11'] = 'yes'
-    with open('example.ini', 'w') as configfile:
-        conf.write(configfile)
+    conf['dirs']= {"rw": os.path.join(os.getcwd(), "data\\rw\\20160529") }
+
+    return(conf)
+
+conf = init_conf()
+
+
+
+

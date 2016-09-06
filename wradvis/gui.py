@@ -11,16 +11,13 @@ from PyQt4 import QtGui, QtCore
 from wradvis.glcanvas import RadolanCanvas, ColorbarCanvas
 from wradvis.properties import PropertiesWidget
 from wradvis import utils
-from wradvis import config
+from wradvis.config import conf
 
 
 class MainWindow(QtGui.QMainWindow):
 
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
-
-        # default configuration object holds all info to save/open settings
-        self.conf = config.init_conf()
 
         self.resize(825, 500)
         self.setWindowTitle('RADOLAN Viewer')

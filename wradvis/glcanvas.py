@@ -15,6 +15,7 @@ from vispy.scene.visuals import Image, ColorBar, Markers, Text
 from vispy.geometry import Rect
 
 from wradvis import utils
+from wradvis.config import conf
 
 
 class ColorbarCanvas(SceneCanvas):
