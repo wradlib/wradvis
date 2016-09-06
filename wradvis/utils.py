@@ -32,6 +32,9 @@ def radolan_to_wgs84(coords):
     return ll
 
 
+def get_radolan_grid():
+    return wrl.georef.get_radolan_grid()
+
 def get_radolan_origin():
     return wrl.georef.get_radolan_grid()[0, 0]
 
