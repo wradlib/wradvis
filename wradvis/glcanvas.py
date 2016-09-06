@@ -7,6 +7,8 @@
 
 import numpy as np
 
+from PyQt4 import QtGui, QtCore
+
 from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
 from vispy.visuals.transforms import STTransform
@@ -125,11 +127,35 @@ class RadolanCanvas(SceneCanvas):
         # print FPS to console, vispy SceneCanvas internal function
         self.measure_fps()
 
+    def create_marker(self, id, pos, name):
+        marker = Markers(parent=self.view.scene)
+        marker.transform = STTransform(translate=(0, 0, -10))
+        marker.interactive = True
+
+        # add id
+        marker.unfreeze()
+        marker.id = id
+        marker.freeze()
+
+        marker.set_data(pos=pos[np.newaxis],
+                        symbol="disc",
+                        edge_color="blue",
+                        face_color='red',
+                        size=10)
+
+        # initialize Markertext
+        text = Text(text=name,
+                    pos=pos,
+                    font_size=15,
+                    anchor_x='right',
+                    anchor_y='top',
+                    parent=self.view.scene)
+
+        return marker, text
+
     def create_cities(self):
-        # initialize city markers
-        self.markers = Markers(parent=self.view.scene)
-        # move z-direction a bit negative (means nearer to the viewer)
-        self.markers.transform = STTransform(translate=(0, 0, -10))
+
+        self.selected = None
 
         cities = utils.get_cities_coords()
         cnameList = []
@@ -143,19 +169,16 @@ class RadolanCanvas(SceneCanvas):
         pos_scene[:] = ccoord - self.r0
 
         # initialize Markers
-        self.markers.set_data(pos=pos_scene,
-                              symbol="disc",
-                              edge_color="blue",
-                              face_color='red',
-                              size=10)
+        self.markers = []
+        self.text = []
+        i = 0
+        for p, n in zip(pos_scene, cnameList):
+            print(i, p, n)
+            m, t = self.create_marker(i, p, n)
+            self.markers.append(m)
+            self.text.append(t)
 
-        # initialize Markertext
-        self.text = Text(text=cnameList,
-                         pos=pos_scene,
-                         font_size=15,
-                         anchor_x = 'right',
-                         anchor_y = 'top',
-                         parent=self.view.scene)
+        i += 1
 
     def on_mouse_move(self, event):
         point = self.scene.node_transform(self.image).map(event.pos)[:2]
@@ -163,6 +186,41 @@ class RadolanCanvas(SceneCanvas):
         # emit signal
         self.mouse_moved()
 
+    def on_mouse_press(self, event):
+        self.view.interactive = False
+        print("pressed")
+        for v in self.visuals_at(event.pos, radius=30):
+            print(v)
+            if isinstance(v, Markers):
+                if self.selected is not None:
+                    self.selected.symbol = 'disc'
+                    if self.selected.id == v.id:
+                        self.selected = None
+                        break
+                self.selected = v
+                self.selected.symbol = 'star'
+                print("Marker ID:", self.selected.id)
+
+        self.view.interactive = True
 
 
+class RadolanWidget(QtGui.QWidget):
+    def __init__(self):
+        QtGui.QWidget.__init__(self)
+        self.canvas = RadolanCanvas()
+        self.canvas.create_native()
+        self.canvas.native.setParent(self)
+        self.cbar = ColorbarCanvas()
+        self.cbar.create_native()
+        self.cbar.native.setParent(self)
 
+        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.splitter.addWidget(self.canvas.native)
+        self.splitter.addWidget(self.cbar.native)
+        self.hbl = QtGui.QHBoxLayout()
+        self.hbl.addWidget(self.splitter)
+        self.setLayout(self.hbl)
+
+    def set_data(self, data):
+        self.canvas.image.set_data(data)
+        self.canvas.update()

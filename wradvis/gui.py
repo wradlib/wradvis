@@ -8,7 +8,8 @@
 from PyQt4 import QtGui, QtCore
 
 # other wradvis imports
-from wradvis.glcanvas import RadolanCanvas, ColorbarCanvas
+from wradvis.glcanvas import RadolanWidget
+from wradvis.mplcanvas import MplWidget
 from wradvis.properties import PropertiesWidget
 from wradvis import utils
 import numpy as np
@@ -27,17 +28,19 @@ class MainWindow(QtGui.QMainWindow):
         self.timer.timeout.connect(self.reload)
 
         # initialize RadolanCanvas
-        self.canvas = RadolanCanvas()
-        self.canvas.create_native()
-        self.canvas.native.setParent(self)
+        self.rwidget = RadolanWidget()
+        self.iwidget = self.rwidget
+
+        # initialize MplWidget
+        self.mwidget = MplWidget()
+
+        # canvas swapper
+        self.swapper = []
+        self.swapper.append(self.rwidget)
+        self.swapper.append(self.mwidget)
 
         # need some tracer for the mouse position
-        self.canvas.mouse_moved.connect(self.mouse_moved)
-
-        # add ColorbarCanvas
-        self.canvas_cb = ColorbarCanvas()
-        self.canvas_cb.create_native()
-        self.canvas_cb.native.setParent(self)
+        self.rwidget.canvas.mouse_moved.connect(self.mouse_moved)
 
         # add PropertiesWidget
         self.props = PropertiesWidget()
@@ -46,11 +49,12 @@ class MainWindow(QtGui.QMainWindow):
         self.props.signal_speed_changed.connect(self.speed)
 
         # add Horizontal Splitter andd the three widgets
-        splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
-        splitter.addWidget(self.props)
-        splitter.addWidget(self.canvas.native)
-        splitter.addWidget(self.canvas_cb.native)
-        self.setCentralWidget(splitter)
+        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.splitter.addWidget(self.props)
+        self.splitter.addWidget(self.swapper[0])
+        self.splitter.addWidget(self.swapper[1])
+        self.swapper[1].hide()
+        self.setCentralWidget(self.splitter)
 
         # finish init
         self.slider_changed()
@@ -79,12 +83,17 @@ class MainWindow(QtGui.QMainWindow):
             scantime = self.meta['datetime']
             self.props.sliderLabel.setText(scantime.strftime("%H:%M"))
             self.props.date.setText(scantime.strftime("%Y-%m-%d"))
-            self.canvas.image.set_data(self.data)
-            self.canvas.update()
+            self.iwidget.set_data(self.data)
 
     def mouse_moved(self, event):
-        self.props.show_mouse(self.canvas._mouse_position)
+        self.props.show_mouse(self.rwidget.canvas._mouse_position)
 
+    def keyPressEvent(self, event):
+        if event.text() == 'c':
+            self.swapper = self.swapper[::-1]
+            self.iwidget = self.swapper[0]
+            self.swapper[0].show()
+            self.swapper[1].hide()
 
 def start(arg):
     appQt = QtGui.QApplication(arg.argv)
