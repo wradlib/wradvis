@@ -11,11 +11,7 @@ from PyQt4 import QtGui, QtCore
 from wradvis.glcanvas import RadolanCanvas, ColorbarCanvas
 from wradvis.properties import PropertiesWidget
 from wradvis import utils
-<<<<<<< HEAD
 from wradvis import config
-=======
-import numpy as np
->>>>>>> wradlib/master
 
 
 class MainWindow(QtGui.QMainWindow):
