@@ -11,7 +11,11 @@ from PyQt4 import QtGui, QtCore
 from wradvis.glcanvas import RadolanCanvas, ColorbarCanvas
 from wradvis.properties import PropertiesWidget
 from wradvis import utils
+<<<<<<< HEAD
 from wradvis import config
+=======
+import numpy as np
+>>>>>>> wradlib/master
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -74,12 +78,16 @@ class MainWindow(QtGui.QMainWindow):
         self.timer.setInterval(self.props.speed.value())
 
     def slider_changed(self):
-        self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
-        scantime = self.meta['datetime']
-        self.props.sliderLabel.setText(scantime.strftime("%H:%M"))
-        self.props.date.setText(scantime.strftime("%Y-%m-%d"))
-        self.canvas.image.set_data(self.data)
-        self.canvas.update()
+        try:
+            self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
+        except IndexError:
+            print("Could not read any data.")
+        else:
+            scantime = self.meta['datetime']
+            self.props.sliderLabel.setText(scantime.strftime("%H:%M"))
+            self.props.date.setText(scantime.strftime("%Y-%m-%d"))
+            self.canvas.image.set_data(self.data)
+            self.canvas.update()
 
     def mouse_moved(self, event):
         self.props.show_mouse(self.canvas._mouse_position)
