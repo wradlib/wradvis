@@ -48,11 +48,11 @@ class PropertiesWidget(QtGui.QWidget):
         self.hline = QtGui.QFrame()
         self.hline.setFrameShape(QtGui.QFrame.HLine)
         self.hline.setFrameShadow(QtGui.QFrame.Sunken)
-        self.dirname = "/local/kai/owncloud/data/DWD/RX/2015-05-01"
+        self.dirname = os.getcwd()
         self.dirLabel = LongLabel(self.dirname)
         self.filelist = sorted(
             glob.glob(os.path.join(self.dirname, "raa01*.gz")))
-        self.frames = len(self.filelist)
+        #self.frames = len(self.filelist)
         self.actualFrame = 0
         self.dirButton = self.createButton(QtGui.QStyle.SP_DirHomeIcon,
                                            QtCore.QSize(18, 18),
@@ -67,7 +67,7 @@ class PropertiesWidget(QtGui.QWidget):
         self.mediabox = QtGui.QGridLayout()
         self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
         self.slider.setMinimum(1)
-        self.slider.setMaximum(self.frames)
+        self.slider.setMaximum(self.get_frames())
         self.slider.setTickInterval(1)
         self.slider.setSingleStep(1)
         self.slider.valueChanged.connect(self.update_slider)
@@ -164,8 +164,10 @@ class PropertiesWidget(QtGui.QWidget):
 
         if os.path.isdir(f):
             self.dirLabel.setText(f)
-            self.dirname = f
+            self.dirname = str(f)
             self.filelist = glob.glob(os.path.join(self.dirname, "raa01*"))
+            self.slider.setMaximum(self.get_frames())
+            self.signal_slider_changed.emit()
 
     def seekforward(self):
         if self.slider.value() == self.slider.maximum():
@@ -198,3 +200,6 @@ class PropertiesWidget(QtGui.QWidget):
         self.mousePointXY.setText("({0:d}, {1:d})".format(int(point[0]), int(point[1])))
         ll = utils.radolan_to_wgs84(point + self.r0)
         self.mousePointLL.setText("({0:.2f}, {1:.2f})".format(ll[0], ll[1]))
+
+    def get_frames(self):
+        return(len(self.filelist))
