@@ -9,6 +9,7 @@
 """
 
 import wradlib as wrl
+from wradvis.config import conf
 
 
 def wgs84_to_radolan(coords):

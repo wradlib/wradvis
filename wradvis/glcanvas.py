@@ -17,6 +17,7 @@ from vispy.scene.visuals import Image, ColorBar, Markers, Text
 from vispy.geometry import Rect
 
 from wradvis import utils
+from wradvis.config import conf
 
 
 class ColorbarCanvas(SceneCanvas):
@@ -45,7 +46,7 @@ class ColorbarCanvas(SceneCanvas):
         self.cbar = ColorBar(center_pos=(0, 10),
                              size=np.array([400, 20]),
                              cmap=cmap,
-                             clim=(0, 255),
+                             clim=conf["vis"]["clim"],
                              label_str='measurement units',
                              orientation='right',
                              border_width=1,
