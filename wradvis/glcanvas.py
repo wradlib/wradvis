@@ -84,6 +84,7 @@ class RadolanCanvas(SceneCanvas):
 
         # add signal emitters
         self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
+        self.key_pressed = EventEmitter(source=self, type="key_pressed")
 
         # block double clicks
         self.events.mouse_double_click.block()
@@ -177,8 +178,7 @@ class RadolanCanvas(SceneCanvas):
             m, t = self.create_marker(i, p, n)
             self.markers.append(m)
             self.text.append(t)
-
-        i += 1
+            i += 1
 
     def on_mouse_move(self, event):
         point = self.scene.node_transform(self.image).map(event.pos)[:2]
@@ -188,9 +188,8 @@ class RadolanCanvas(SceneCanvas):
 
     def on_mouse_press(self, event):
         self.view.interactive = False
-        print("pressed")
+        print("mouse pressed")
         for v in self.visuals_at(event.pos, radius=30):
-            print(v)
             if isinstance(v, Markers):
                 if self.selected is not None:
                     self.selected.symbol = 'disc'
@@ -202,6 +201,9 @@ class RadolanCanvas(SceneCanvas):
                 print("Marker ID:", self.selected.id)
 
         self.view.interactive = True
+
+    def on_key_press(self, event):
+        self.key_pressed(event)
 
 
 class RadolanWidget(QtGui.QWidget):
