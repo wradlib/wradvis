@@ -46,7 +46,7 @@ class MainWindow(QtGui.QMainWindow):
         # add PropertiesWidget
         self.props = PropertiesWidget()
         self.props.signal_slider_changed.connect(self.slider_changed)
-        self.props.signal_playpause_changed.connect(self.start_stop)
+        self.props.mediabox.signal_playpause_changed.connect(self.start_stop)
         self.props.signal_speed_changed.connect(self.speed)
 
         # add Horizontal Splitter and the three widgets
@@ -61,10 +61,10 @@ class MainWindow(QtGui.QMainWindow):
         self.slider_changed()
 
     def reload(self):
-        if self.props.slider.value() == self.props.slider.maximum():
-            self.props.slider.setValue(1)
+        if self.props.mediabox.slider.value() == self.props.mediabox.slider.maximum():
+            self.props.mediabox.slider.setValue(1)
         else:
-            self.props.slider.setValue(self.props.slider.value() + 1)
+            self.props.mediabox.slider.setValue(self.props.mediabox.slider.value() + 1)
 
     def start_stop(self):
         if self.timer.isActive():
@@ -73,7 +73,7 @@ class MainWindow(QtGui.QMainWindow):
             self.timer.start()
 
     def speed(self):
-        self.timer.setInterval(self.props.speed.value())
+        self.timer.setInterval(self.props.mediabox.speed.value())
 
     def slider_changed(self):
         try:
@@ -82,8 +82,8 @@ class MainWindow(QtGui.QMainWindow):
             print("Could not read any data.")
         else:
             scantime = self.meta['datetime']
-            self.props.sliderLabel.setText(scantime.strftime("%H:%M"))
-            self.props.date.setText(scantime.strftime("%Y-%m-%d"))
+            self.props.mediabox.sliderLabel.setText(scantime.strftime("%H:%M"))
+            self.props.mediabox.date.setText(scantime.strftime("%Y-%m-%d"))
             self.iwidget.set_data(self.data)
 
     def mouse_moved(self, event):

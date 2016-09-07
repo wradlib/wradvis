@@ -55,7 +55,6 @@ class MplCanvas(FigureCanvas):
 
         self.create_cities()
 
-
     def create_cities(self):
         self.selected = None
         cities = utils.get_cities_coords()

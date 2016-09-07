@@ -30,6 +30,102 @@ class LongLabel(QLabel):
         painter.drawText(self.rect(), self.alignment(), elided)
 
 
+class MediaBox(QtGui.QWidget):
+
+    signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
+
+    def __init__(self, parent=None):
+        super(MediaBox, self).__init__(parent)
+        # Media Control
+        self.glayout = QtGui.QGridLayout()
+        print(parent.get_frames())
+        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.slider.setMinimum(1)
+        self.slider.setMaximum(parent.get_frames())
+        self.slider.setTickInterval(1)
+        self.slider.setSingleStep(1)
+        self.slider.valueChanged.connect(parent.update_slider)
+        self.speed = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.speed.setMinimum(0)
+        self.speed.setMaximum(1000)
+        self.speed.setTickInterval(10)
+        self.speed.setSingleStep(10)
+        self.speed.valueChanged.connect(parent.speed_changed)
+        self.dateLabel = QtGui.QLabel("Date")#, self)
+        self.date = QtGui.QLabel("1900-01-01")#, self)
+        self.timeLabel = QtGui.QLabel("Time")#, self)
+        self.sliderLabel = QtGui.QLabel("00:00")#, self)
+        self.createMediaButtons()
+        self.hline0 = QtGui.QFrame()
+        self.hline0.setFrameShape(QtGui.QFrame.HLine)
+        self.hline0.setFrameShadow(QtGui.QFrame.Sunken)
+        self.hline1 = QtGui.QFrame()
+        self.hline1.setFrameShape(QtGui.QFrame.HLine)
+        self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
+        # self.mediabox.setContentsMargins(1, 20, 1, 1)
+        self.glayout.addWidget(self.hline0, 0, 0, 1, 7)
+        self.glayout.addWidget(self.dateLabel, 1, 0)
+        self.glayout.addWidget(self.date, 1, 4)
+        self.glayout.addWidget(self.timeLabel, 2, 0)
+        self.glayout.addWidget(self.sliderLabel, 2, 4)
+        self.glayout.addWidget(self.playPauseButton, 3, 0)
+        self.glayout.addWidget(self.fwdButton, 3, 2)
+        self.glayout.addWidget(self.rewButton, 3, 1)
+        self.glayout.addWidget(self.slider, 3, 3, 1, 4)
+        self.glayout.addWidget(self.speed, 4, 0, 1, 7)
+        self.glayout.addWidget(self.hline1, 5, 0, 1, 7)
+        self.setLayout(self.glayout)
+
+
+    def createMediaButtons(self):
+        iconSize = QtCore.QSize(18, 18)
+
+        self.playPauseButton = self.createButton(QtGui.QStyle.SP_MediaPlay,
+                                                 iconSize,
+                                                 "Play",
+                                                 self.playpause)
+        self.fwdButton = self.createButton(QtGui.QStyle.SP_MediaSeekForward,
+                                           iconSize,
+                                           "SeekForward",
+                                           self.seekforward)
+
+        self.rewButton = self.createButton(QtGui.QStyle.SP_MediaSeekBackward,
+                                           iconSize,
+                                           "SeekBackward",
+                                           self.seekbackward)
+
+    def createButton(self, style, size, tip, cfunc):
+        button = QtGui.QToolButton()
+        button.setIcon(self.style().standardIcon(style))
+        button.setIconSize(size)
+        button.setToolTip(tip)
+        button.clicked.connect(cfunc)
+        return button
+
+    def seekforward(self):
+        if self.slider.value() == self.slider.maximum():
+            self.slider.setValue(1)
+        else:
+            self.slider.setValue(self.slider.value() + 1)
+
+    def seekbackward(self):
+        if self.slider.value() == 1:
+            self.slider.setValue(self.slider.maximum())
+        else:
+            self.slider.setValue(self.slider.value() - 1)
+
+    def playpause(self):
+        if self.playPauseButton.toolTip() == 'Play':
+            self.playPauseButton.setToolTip("Pause")
+            self.playPauseButton.setIcon(
+                self.style().standardIcon(QtGui.QStyle.SP_MediaPause))
+        else:
+            self.playPauseButton.setToolTip("Play")
+            self.playPauseButton.setIcon(
+                self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
+        self.signal_playpause_changed.emit()
+
+
 # Properties
 class PropertiesWidget(QtGui.QWidget):
     """
@@ -37,7 +133,7 @@ class PropertiesWidget(QtGui.QWidget):
     """
     signal_slider_changed = QtCore.pyqtSignal(name='slidervalueChanged')
     signal_speed_changed = QtCore.pyqtSignal(name='speedChanged')
-    signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
+    #signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
     signal_data_changed = QtCore.pyqtSignal(name='data_changed')
 
     def __init__(self, parent=None):
@@ -95,43 +191,50 @@ class PropertiesWidget(QtGui.QWidget):
         saveConf.triggered.connect(self.save_conf)
         fileMenu.addAction(saveConf)
 
-        # Media Control
-        self.mediabox = QtGui.QGridLayout()
-        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
-        self.slider.setMinimum(1)
-        self.slider.setMaximum(self.get_frames())
-        self.slider.setTickInterval(1)
-        self.slider.setSingleStep(1)
-        self.slider.valueChanged.connect(self.update_slider)
-        self.speed = QtGui.QSlider(QtCore.Qt.Horizontal)
-        self.speed.setMinimum(0)
-        self.speed.setMaximum(1000)
-        self.speed.setTickInterval(10)
-        self.speed.setSingleStep(10)
-        self.speed.valueChanged.connect(self.speed_changed)
-        self.dateLabel = QtGui.QLabel("Date", self)
-        self.date = QtGui.QLabel("1900-01-01", self)
-        self.timeLabel = QtGui.QLabel("Time", self)
-        self.sliderLabel = QtGui.QLabel("00:00", self)
-        self.createMediaButtons()
-        self.hline0 = QtGui.QFrame()
-        self.hline0.setFrameShape(QtGui.QFrame.HLine)
-        self.hline0.setFrameShadow(QtGui.QFrame.Sunken)
-        self.hline1 = QtGui.QFrame()
-        self.hline1.setFrameShape(QtGui.QFrame.HLine)
-        self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
-        #self.mediabox.setContentsMargins(1, 20, 1, 1)
-        self.mediabox.addWidget(self.hline0, 0, 0, 1, 7)
-        self.mediabox.addWidget(self.dateLabel, 1, 0)
-        self.mediabox.addWidget(self.date, 1, 4)
-        self.mediabox.addWidget(self.timeLabel, 2, 0)
-        self.mediabox.addWidget(self.sliderLabel, 2, 4)
-        self.mediabox.addWidget(self.playPauseButton, 3, 0)
-        self.mediabox.addWidget(self.fwdButton, 3, 2)
-        self.mediabox.addWidget(self.rewButton, 3, 1)
-        self.mediabox.addWidget(self.slider, 3, 3, 1, 4)
-        self.mediabox.addWidget(self.speed, 4, 0, 1, 7)
-        self.mediabox.addWidget(self.hline1, 5, 0, 1, 7)
+        # Set tool menu media checkbox
+        self.setMediaBox = QtGui.QAction("&Acivate MediaBox", self)
+        self.setMediaBox.setStatusTip('Media Handling')
+        self.setMediaBox.setCheckable(True)
+        self.setMediaBox.setChecked(True)
+        self.setMediaBox.triggered.connect(self.set_mediabox)
+        toolsMenu.addAction(self.setMediaBox)
+
+        self.mediabox = MediaBox(parent=self)
+        # self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        # self.slider.setMinimum(1)
+        # self.slider.setMaximum(self.get_frames())
+        # self.slider.setTickInterval(1)
+        # self.slider.setSingleStep(1)
+        # self.slider.valueChanged.connect(self.update_slider)
+        # self.speed = QtGui.QSlider(QtCore.Qt.Horizontal)
+        # self.speed.setMinimum(0)
+        # self.speed.setMaximum(1000)
+        # self.speed.setTickInterval(10)
+        # self.speed.setSingleStep(10)
+        # self.speed.valueChanged.connect(self.speed_changed)
+        # self.dateLabel = QtGui.QLabel("Date", self)
+        # self.date = QtGui.QLabel("1900-01-01", self)
+        # self.timeLabel = QtGui.QLabel("Time", self)
+        # self.sliderLabel = QtGui.QLabel("00:00", self)
+        # self.createMediaButtons()
+        # self.hline0 = QtGui.QFrame()
+        # self.hline0.setFrameShape(QtGui.QFrame.HLine)
+        # self.hline0.setFrameShadow(QtGui.QFrame.Sunken)
+        # self.hline1 = QtGui.QFrame()
+        # self.hline1.setFrameShape(QtGui.QFrame.HLine)
+        # self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
+        # # self.mediabox.setContentsMargins(1, 20, 1, 1)
+        # self.mediabox.addWidget(self.hline0, 0, 0, 1, 7)
+        # self.mediabox.addWidget(self.dateLabel, 1, 0)
+        # self.mediabox.addWidget(self.date, 1, 4)
+        # self.mediabox.addWidget(self.timeLabel, 2, 0)
+        # self.mediabox.addWidget(self.sliderLabel, 2, 4)
+        # self.mediabox.addWidget(self.playPauseButton, 3, 0)
+        # self.mediabox.addWidget(self.fwdButton, 3, 2)
+        # self.mediabox.addWidget(self.rewButton, 3, 1)
+        # self.mediabox.addWidget(self.slider, 3, 3, 1, 4)
+        # self.mediabox.addWidget(self.speed, 4, 0, 1, 7)
+        # self.mediabox.addWidget(self.hline1, 5, 0, 1, 7)
 
         # Mouse Properties
         self.mousebox = QtGui.QGridLayout()
@@ -156,7 +259,7 @@ class PropertiesWidget(QtGui.QWidget):
         vbox = QtGui.QVBoxLayout()
         vbox.addLayout(self.menubar)
         vbox.addLayout(self.sourcebox)
-        vbox.addLayout(self.mediabox)
+        vbox.addWidget(self.mediabox)
         vbox.addLayout(self.mousebox)
         vbox.addStretch(0)
 
@@ -169,30 +272,9 @@ class PropertiesWidget(QtGui.QWidget):
     def speed_changed(self, position):
         self.signal_speed_changed.emit()
 
-    def createMediaButtons(self):
-        iconSize = QtCore.QSize(18, 18)
+    def set_mediabox(self):
+        self.mediabox.setVisible(self.setMediaBox.isChecked())
 
-        self.playPauseButton = self.createButton(QtGui.QStyle.SP_MediaPlay,
-                                           iconSize,
-                                           "Play",
-                                           self.playpause)
-        self.fwdButton = self.createButton(QtGui.QStyle.SP_MediaSeekForward,
-                                           iconSize,
-                                           "SeekForward",
-                                           self.seekforward)
-
-        self.rewButton = self.createButton(QtGui.QStyle.SP_MediaSeekBackward,
-                                           iconSize,
-                                           "SeekBackward",
-                                           self.seekbackward)
-
-    def createButton(self, style, size, tip, cfunc):
-        button = QtGui.QToolButton()
-        button.setIcon(self.style().standardIcon(style))
-        button.setIconSize(size)
-        button.setToolTip(tip)
-        button.clicked.connect(cfunc)
-        return button
 
     def set_datadir(self):
         f = QtGui.QFileDialog.getExistingDirectory(self,
@@ -208,27 +290,7 @@ class PropertiesWidget(QtGui.QWidget):
             self.slider.setMaximum(self.get_frames())
             self.signal_slider_changed.emit()
 
-    def seekforward(self):
-        if self.slider.value() == self.slider.maximum():
-            self.slider.setValue(1)
-        else:
-            self.slider.setValue(self.slider.value() + 1)
 
-    def seekbackward(self):
-        if self.slider.value() == 1:
-            self.slider.setValue(self.slider.maximum())
-        else:
-            self.slider.setValue(self.slider.value() - 1)
-
-
-    def playpause(self):
-        if self.playPauseButton.toolTip() == 'Play':
-            self.playPauseButton.setToolTip("Pause")
-            self.playPauseButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPause))
-        else:
-            self.playPauseButton.setToolTip("Play")
-            self.playPauseButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
-        self.signal_playpause_changed.emit()
 
     def show_mouse(self, point):
         self.mousePointXY.setText("({0:d}, {1:d})".format(int(point[0]), int(point[1])))
