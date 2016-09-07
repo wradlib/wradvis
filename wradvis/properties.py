@@ -43,12 +43,17 @@ class PropertiesWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(PropertiesWidget, self).__init__(parent)
 
+        palette = QtGui.QPalette()
+        self.setStyleSheet(""" QMenuBar {
+            font-size:13px;
+        }""")
+
         # File menue to manage all file and directory actions
+        self.menubar = QtGui.QGridLayout()
         mainMenu = QtGui.QMenuBar(self)
         fileMenu = mainMenu.addMenu('&File')
+        self.menubar.addWidget(mainMenu)
 
-        # Data Source Control
-        self.sourcebox = QtGui.QGridLayout()
         # Horizontal line
         self.hline = QtGui.QFrame()
         self.hline.setFrameShape(QtGui.QFrame.HLine)
@@ -58,6 +63,15 @@ class PropertiesWidget(QtGui.QWidget):
         self.filelist = sorted(
             glob.glob(os.path.join(self.dirname, "raa01*.gz")))
         self.actualFrame = 0
+
+        # Data source box (control via File menu bar)
+        self.sourcebox = QtGui.QGridLayout()
+        self.sourcebox.setContentsMargins(1, 20, 1, 1)
+        self.sourcebox.addWidget(LongLabel("Current data directory"), 0, 0)
+        self.sourcebox.addWidget(self.dirLabel, 1, 0)
+        self.dirLabel.setFixedSize(250, 14)
+        palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.darkGreen)
+        self.dirLabel.setPalette(palette)
 
         # Set data directory
         setDataDir = QtGui.QAction("&Set data directory", self)
@@ -104,7 +118,7 @@ class PropertiesWidget(QtGui.QWidget):
         self.hline1 = QtGui.QFrame()
         self.hline1.setFrameShape(QtGui.QFrame.HLine)
         self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
-        self.mediabox.setContentsMargins(1, 20, 1, 1)
+        #self.mediabox.setContentsMargins(1, 20, 1, 1)
         self.mediabox.addWidget(self.hline0, 0, 0, 1, 7)
         self.mediabox.addWidget(self.dateLabel, 1, 0)
         self.mediabox.addWidget(self.date, 1, 4)
@@ -138,6 +152,7 @@ class PropertiesWidget(QtGui.QWidget):
 
         # initialize vertical boxgrid
         vbox = QtGui.QVBoxLayout()
+        vbox.addLayout(self.menubar)
         vbox.addLayout(self.sourcebox)
         vbox.addLayout(self.mediabox)
         vbox.addLayout(self.mousebox)
