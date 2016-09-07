@@ -55,7 +55,9 @@ class MplCanvas(FigureCanvas):
 
         self.create_cities()
 
+
     def create_cities(self):
+        self.selected = None
         cities = utils.get_cities_coords()
         cnameList = []
         ccoordList = []
@@ -66,11 +68,32 @@ class MplCanvas(FigureCanvas):
         ccoord = utils.wgs84_to_radolan(ccoord)
         x = ccoord[..., 0]
         y = ccoord[..., 1]
-        self.ax.scatter(x, y, s=50, c='r')
+        self.ax.scatter(x, y, s=100, c=['r']*len(x), picker=30)
         for i, txt in enumerate(cnameList):
             self.ax.annotate(txt, (x[i], y[i]),
                              horizontalalignment='right',
                              verticalalignment='top')
+        self.mpl_connect('pick_event', self.onpick_cities)
+
+    def onpick_cities(self, event):
+        artist = event.artist
+        cid = event.ind[0]
+
+        if self.selected is None:
+            artist._facecolors[cid, :] = (0, 1, 0, 1)  # green
+            self.selected = cid
+        else:
+            artist._facecolors[self.selected, :] = (1, 0, 0, 1)  # red
+            if self.selected == cid:
+                self.selected = None
+            else:
+                self.selected = cid
+                artist._facecolors[self.selected, :] = (0, 1, 0, 1)  # green
+
+        self.fig.canvas.draw()
+
+    def on_key_press(self, event):
+        self.key_pressed(event)
 
 
 class MplWidget(QtGui.QWidget):
