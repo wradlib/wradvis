@@ -52,6 +52,8 @@ class PropertiesWidget(QtGui.QWidget):
         self.menubar = QtGui.QGridLayout()
         mainMenu = QtGui.QMenuBar(self)
         fileMenu = mainMenu.addMenu('&File')
+        toolsMenu = mainMenu.addMenu('&Tools')
+        helpMenu = mainMenu.addMenu('&Help')
         self.menubar.addWidget(mainMenu)
 
         # Horizontal line
