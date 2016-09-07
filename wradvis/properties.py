@@ -174,25 +174,20 @@ class PropertiesWidget(QtGui.QWidget):
             self.slider.setValue(1)
         else:
             self.slider.setValue(self.slider.value() + 1)
-        self.update_slider(self.slider.value())
 
     def seekbackward(self):
-        #print(self.slider.value())
         if self.slider.value() == 1:
             self.slider.setValue(self.slider.maximum())
-            self.update_slider(self.slider.maximum())
         else:
             self.slider.setValue(self.slider.value() - 1)
-            self.update_slider(self.slider.value() - 1)
+
 
     def playpause(self):
         if self.playPauseButton.toolTip() == 'Play':
             self.playPauseButton.setToolTip("Pause")
-            #self.timer.start()
             self.playPauseButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPause))
         else:
             self.playPauseButton.setToolTip("Play")
-            #self.timer.stop()
             self.playPauseButton.setIcon(self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
         self.signal_playpause_changed.emit()
 

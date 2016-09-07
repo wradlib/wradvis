@@ -12,7 +12,6 @@ from wradvis.glcanvas import RadolanWidget
 from wradvis.mplcanvas import MplWidget
 from wradvis.properties import PropertiesWidget
 from wradvis import utils
-import numpy as np
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -41,6 +40,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # need some tracer for the mouse position
         self.rwidget.canvas.mouse_moved.connect(self.mouse_moved)
+        self.rwidget.canvas.key_pressed.connect(self.keyPressEvent)
 
         # add PropertiesWidget
         self.props = PropertiesWidget()
@@ -89,11 +89,16 @@ class MainWindow(QtGui.QMainWindow):
         self.props.show_mouse(self.rwidget.canvas._mouse_position)
 
     def keyPressEvent(self, event):
-        if event.text() == 'c':
+        if isinstance(event, QtGui.QKeyEvent):
+            text = event.text()
+        else:
+            text = event.text
+        if text == 'c':
             self.swapper = self.swapper[::-1]
             self.iwidget = self.swapper[0]
             self.swapper[0].show()
             self.swapper[1].hide()
+
 
 def start(arg):
     appQt = QtGui.QApplication(arg.argv)
