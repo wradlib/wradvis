@@ -15,6 +15,7 @@ from PyQt4 import QtGui, QtCore
 from PyQt4.QtGui import QLabel, QFontMetrics, QPainter
 
 from wradvis import utils
+from wradvis.config import conf
 
 
 class LongLabel(QLabel):
@@ -42,26 +43,57 @@ class PropertiesWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(PropertiesWidget, self).__init__(parent)
 
-        # Data Source Control
-        self.sourcebox = QtGui.QGridLayout()
+        palette = QtGui.QPalette()
+        self.setStyleSheet(""" QMenuBar {
+            font-size:13px;
+        }""")
+
+        # File menue to manage all file and directory actions
+        self.menubar = QtGui.QGridLayout()
+        mainMenu = QtGui.QMenuBar(self)
+        fileMenu = mainMenu.addMenu('&File')
+        toolsMenu = mainMenu.addMenu('&Tools')
+        helpMenu = mainMenu.addMenu('&Help')
+        self.menubar.addWidget(mainMenu)
+
         # Horizontal line
         self.hline = QtGui.QFrame()
         self.hline.setFrameShape(QtGui.QFrame.HLine)
         self.hline.setFrameShadow(QtGui.QFrame.Sunken)
-        self.dirname = os.path.join(os.getcwd(), "data/rw/20160529")
+        self.dirname = conf["dirs"]["data"]
         self.dirLabel = LongLabel(self.dirname)
         self.filelist = sorted(
             glob.glob(os.path.join(self.dirname, "raa01*.gz")))
-        #self.frames = len(self.filelist)
         self.actualFrame = 0
-        self.dirButton = self.createButton(QtGui.QStyle.SP_DirHomeIcon,
-                                           QtCore.QSize(18, 18),
-                                           "Load Directory",
-                                           self.selectDir)
-        self.sourcebox.addWidget(self.dirButton, 0, 0)
+
+        # Data source box (control via File menu bar)
+        self.sourcebox = QtGui.QGridLayout()
+        self.sourcebox.setContentsMargins(1, 20, 1, 1)
+        self.sourcebox.addWidget(LongLabel("Current data directory"), 0, 0)
         self.sourcebox.addWidget(self.dirLabel, 1, 0)
         self.dirLabel.setFixedSize(250, 14)
-        self.sourcebox.addWidget(self.hline, 2, 0, 1, 3)
+        palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.darkGreen)
+        self.dirLabel.setPalette(palette)
+
+        # Set data directory
+        setDataDir = QtGui.QAction("&Set data directory", self)
+        setDataDir.setStatusTip('Set data directory')
+        setDataDir.triggered.connect(self.set_datadir)
+        fileMenu.addAction(setDataDir)
+
+        # Open project (configuration)
+        openConf = QtGui.QAction("&Open project", self)
+        openConf.setShortcut("Ctrl+O")
+        openConf.setStatusTip('Open project')
+        openConf.triggered.connect(self.open_conf)
+        fileMenu.addAction(openConf)
+
+        # Save project (configuration)
+        saveConf = QtGui.QAction("&Save project", self)
+        saveConf.setShortcut("Ctrl+S")
+        saveConf.setStatusTip('Save project')
+        saveConf.triggered.connect(self.save_conf)
+        fileMenu.addAction(saveConf)
 
         # Media Control
         self.mediabox = QtGui.QGridLayout()
@@ -82,19 +114,24 @@ class PropertiesWidget(QtGui.QWidget):
         self.timeLabel = QtGui.QLabel("Time", self)
         self.sliderLabel = QtGui.QLabel("00:00", self)
         self.createMediaButtons()
+        self.hline0 = QtGui.QFrame()
+        self.hline0.setFrameShape(QtGui.QFrame.HLine)
+        self.hline0.setFrameShadow(QtGui.QFrame.Sunken)
         self.hline1 = QtGui.QFrame()
         self.hline1.setFrameShape(QtGui.QFrame.HLine)
         self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
-        self.mediabox.addWidget(self.dateLabel, 0, 0)
-        self.mediabox.addWidget(self.date, 0, 4)
-        self.mediabox.addWidget(self.timeLabel, 1, 0)
-        self.mediabox.addWidget(self.sliderLabel, 1, 4)
-        self.mediabox.addWidget(self.playPauseButton, 2, 0)
-        self.mediabox.addWidget(self.fwdButton, 2, 2)
-        self.mediabox.addWidget(self.rewButton, 2, 1)
-        self.mediabox.addWidget(self.slider, 2, 3, 1, 4)
-        self.mediabox.addWidget(self.speed, 3, 0, 1, 7)
-        self.mediabox.addWidget(self.hline1, 4, 0, 1, 7)
+        #self.mediabox.setContentsMargins(1, 20, 1, 1)
+        self.mediabox.addWidget(self.hline0, 0, 0, 1, 7)
+        self.mediabox.addWidget(self.dateLabel, 1, 0)
+        self.mediabox.addWidget(self.date, 1, 4)
+        self.mediabox.addWidget(self.timeLabel, 2, 0)
+        self.mediabox.addWidget(self.sliderLabel, 2, 4)
+        self.mediabox.addWidget(self.playPauseButton, 3, 0)
+        self.mediabox.addWidget(self.fwdButton, 3, 2)
+        self.mediabox.addWidget(self.rewButton, 3, 1)
+        self.mediabox.addWidget(self.slider, 3, 3, 1, 4)
+        self.mediabox.addWidget(self.speed, 4, 0, 1, 7)
+        self.mediabox.addWidget(self.hline1, 5, 0, 1, 7)
 
         # Mouse Properties
         self.mousebox = QtGui.QGridLayout()
@@ -117,6 +154,7 @@ class PropertiesWidget(QtGui.QWidget):
 
         # initialize vertical boxgrid
         vbox = QtGui.QVBoxLayout()
+        vbox.addLayout(self.menubar)
         vbox.addLayout(self.sourcebox)
         vbox.addLayout(self.mediabox)
         vbox.addLayout(self.mousebox)
@@ -156,7 +194,7 @@ class PropertiesWidget(QtGui.QWidget):
         button.clicked.connect(cfunc)
         return button
 
-    def selectDir(self):
+    def set_datadir(self):
         f = QtGui.QFileDialog.getExistingDirectory(self,
                                                    "Select a Folder",
                                                    "/automount/data/radar/dwd",
@@ -165,6 +203,7 @@ class PropertiesWidget(QtGui.QWidget):
         if os.path.isdir(f):
             self.dirLabel.setText(f)
             self.dirname = str(f)
+            conf["dirs"]["data"] = self.dirname
             self.filelist = glob.glob(os.path.join(self.dirname, "raa01*"))
             self.slider.setMaximum(self.get_frames())
             self.signal_slider_changed.emit()
@@ -198,3 +237,13 @@ class PropertiesWidget(QtGui.QWidget):
 
     def get_frames(self):
         return(len(self.filelist))
+
+    def save_conf(self):
+        name = QtGui.QFileDialog.getSaveFileName(self, 'Save File')
+        with open(name, "w") as f:
+            conf.write(f)
+
+    def open_conf(self):
+        name = QtGui.QFileDialog.getOpenFileName(self, 'Open project')
+        with open(name, "r") as f:
+            conf.read(f)

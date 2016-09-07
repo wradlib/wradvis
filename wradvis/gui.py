@@ -12,6 +12,7 @@ from wradvis.glcanvas import RadolanWidget
 from wradvis.mplcanvas import MplWidget
 from wradvis.properties import PropertiesWidget
 from wradvis import utils
+from wradvis.config import conf
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -48,7 +49,7 @@ class MainWindow(QtGui.QMainWindow):
         self.props.signal_playpause_changed.connect(self.start_stop)
         self.props.signal_speed_changed.connect(self.speed)
 
-        # add Horizontal Splitter andd the three widgets
+        # add Horizontal Splitter and the three widgets
         self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
         self.splitter.addWidget(self.props)
         self.splitter.addWidget(self.swapper[0])
