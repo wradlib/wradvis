@@ -188,17 +188,19 @@ class RadolanCanvas(SceneCanvas):
 
     def on_mouse_press(self, event):
         self.view.interactive = False
-        print("mouse pressed")
+
         for v in self.visuals_at(event.pos, radius=30):
             if isinstance(v, Markers):
-                if self.selected is not None:
+                if self.selected is None:
+                    self.selected = v
+                    self.selected.symbol = 'star'
+                else:
                     self.selected.symbol = 'disc'
                     if self.selected.id == v.id:
                         self.selected = None
-                        break
-                self.selected = v
-                self.selected.symbol = 'star'
-                print("Marker ID:", self.selected.id)
+                    else:
+                        self.selected = v
+                        self.selected.symbol = 'star'
 
         self.view.interactive = True
 
