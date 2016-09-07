@@ -19,7 +19,8 @@ def init_conf():
 
     conf = ConfigParser()
 
-    conf['dirs']= {"rw": os.path.join(os.getcwd(), "data\\rw\\20160529") }
+    conf["dirs"] = {"data": os.path.join(os.getcwd(), "data\\rw\\20160529") }
+    conf["vis"] = {"clim": (0,50)}
 
     return(conf)
 

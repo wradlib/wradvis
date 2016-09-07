@@ -1,0 +1,6 @@
+[dirs]
+data = E:\docs\_berichte\braunsbach
+
+[vis]
+clim = (0, 50)
+
