@@ -18,6 +18,7 @@ from matplotlib.cm import get_cmap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from wradvis import utils
+from wradvis import config
 
 class MplCanvas(FigureCanvas):
 
