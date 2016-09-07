@@ -46,8 +46,7 @@ class MplCanvas(FigureCanvas):
                                      vmin=0, vmax=50)
         div = make_axes_locatable(self.ax)
         cax = div.append_axes("right", size="5%", pad=0.1)
-        # add colorbar and title
-        # we use LogLocator for colorbar
+        # add colorbar
         self.cbar = self.fig.colorbar(self.pm, cax=cax)
         self.ax.set_aspect('equal')
         self.ax.set_xlim([grid[..., 0].min(), grid[..., 0].max()])
