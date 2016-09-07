@@ -28,7 +28,6 @@ class MainWindow(QtGui.QMainWindow):
 
         # initialize RadolanCanvas
         self.rwidget = RadolanWidget()
-
         self.iwidget = self.rwidget
 
         # initialize MplWidget
