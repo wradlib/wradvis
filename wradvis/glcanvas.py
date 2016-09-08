@@ -185,7 +185,7 @@ class RadolanCanvas(SceneCanvas):
         point = self.scene.node_transform(self.image).map(event.pos)[:2]
         self._mouse_position = point
         # emit signal
-        self.mouse_moved()
+        self.mouse_moved(event)
 
     def on_mouse_press(self, event):
         self.view.interactive = False
