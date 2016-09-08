@@ -132,7 +132,9 @@ class MainWindow(QtGui.QMainWindow):
 
     def slider_changed(self):
         try:
-            self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
+            self.data, self.meta = utils.read_dx(
+                self.props.filelist[self.props.actualFrame])
+            #self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
         except IndexError:
             print("Could not read any data.")
         else:

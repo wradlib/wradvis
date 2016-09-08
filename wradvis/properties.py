@@ -244,7 +244,7 @@ class Properties(QtCore.QObject):
 
     def update_props(self):
         self.dir = conf["dirs"]["data"]
-        self.filelist = glob.glob(os.path.join(self.dir, "raa01*"))
+        self.filelist = glob.glob(os.path.join(self.dir, "raa00*---bin"))
         self.frames = len(self.filelist)
         self.actualFrame = 0
         self.signal_props_changed.emit()

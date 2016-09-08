@@ -42,6 +42,9 @@ def get_radolan_origin():
 def read_radolan(f, missing=0, loaddata=True):
     return wrl.io.read_RADOLAN_composite(f, missing=missing, loaddata=loaddata)
 
+def read_dx(f, missing=0, loaddata=True):
+    return wrl.io.readDX(f)
+
 
 def get_cities_coords():
 

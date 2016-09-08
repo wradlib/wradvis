@@ -11,7 +11,7 @@ from PyQt4 import QtGui, QtCore
 
 from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
-from vispy.visuals.transforms import STTransform
+from vispy.visuals.transforms import STTransform, BaseTransform, MatrixTransform
 from vispy.scene.cameras import PanZoomCamera
 from vispy.scene.visuals import Image, ColorBar, Markers, Text
 from vispy.geometry import Rect
@@ -209,10 +209,101 @@ class RadolanCanvas(SceneCanvas):
         self.key_pressed(event)
 
 
+class PolarTransform(BaseTransform):
+    """Polar transform
+    Maps (theta, r, z) to (x, y, z), where `x = r*cos(theta)`
+    and `y = r*sin(theta)`.
+    """
+    glsl_map = """
+        vec4 polar_transform_map(vec4 pos) {
+            //return vec4(pos.y * cos(pos.x), pos.y * sin(pos.x), pos.z, 1);
+            return vec4(pos.x * cos(pos.y), pos.x * sin(pos.y), pos.z, 1);
+        }
+        """
+
+    glsl_imap = """
+        vec4 polar_transform_map(vec4 pos) {
+            // TODO: need some modulo math to handle larger theta values..?
+            float theta = atan(radians(pos.y), radians(pos.x));
+            theta = degrees(theta + 3.14159265358979323846);
+            float r = length(pos.xy);
+            return vec4(r, theta, pos.z, 1);
+        }
+        """
+
+    Linear = False
+    Orthogonal = False
+    NonScaling = False
+    Isometric = False
+
+
+class DXCanvas(SceneCanvas):
+    def __init__(self, **kwargs):
+        super(DXCanvas, self).__init__(keys='interactive', **kwargs)
+
+        self.size = 450, 450
+        self.unfreeze()
+
+        # add grid central widget
+        self.grid = self.central_widget.add_grid()
+
+        # add view to grid
+        self.view = self.grid.add_view(row=0, col=0)
+        self.view.border_color = (0.5, 0.5, 0.5, 1)
+
+        img_data = np.zeros((360, 128))
+
+        # initialize colormap, we take cubehelix for now
+        # this is the most nice colormap for radar in vispy
+        cmap = 'cubehelix'
+
+        self.image = Image(img_data,
+                           method='impostor',
+                           # interpolation='bicubic',
+                           cmap=cmap,
+                           clim=(-32.5, 95),
+                           parent=self.view.scene)
+
+        tr = MatrixTransform()
+        tr.rotate(0, (-1, -1, 1))
+        #tr.rotate(30, (1, 0, 0))
+
+        self.image.transform = (tr * STTransform(translate=(0, 0, 0)) * PolarTransform())
+
+        # add signal emitters
+        self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
+        self.key_pressed = EventEmitter(source=self, type="key_pressed")
+
+        # block double clicks
+        self.events.mouse_double_click.block()
+
+        # create PanZoomCamera
+        self.cam = PanZoomCamera(name="PanZoom",
+                                 rect=Rect(0, 0, 900, 900),
+                                 aspect=1,
+                                 parent=self.view.scene)
+
+        self.view.camera = self.cam
+
+        self.freeze()
+        self.measure_fps()
+
+    def on_mouse_move(self, event):
+        print(event)
+        #point = self.scene.node_transform(self.image).map(event.pos)[:2]
+        #self._mouse_position = point
+        # emit signal
+        #self.mouse_moved(event)
+
+    def on_key_press(self, event):
+        self.key_pressed(event)
+
+
 class RadolanWidget(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        self.canvas = RadolanCanvas()
+        #self.canvas = RadolanCanvas()
+        self.canvas = DXCanvas()
         self.canvas.create_native()
         self.canvas.native.setParent(self)
         self.cbar = ColorbarCanvas()
