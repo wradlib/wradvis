@@ -87,15 +87,9 @@ class SourceBox(DockBox):
         self.hline = QtGui.QFrame()
         self.hline.setFrameShape(QtGui.QFrame.HLine)
         self.hline.setFrameShadow(QtGui.QFrame.Sunken)
-        self.dirname = conf["dirs"]["data"]
+        self.dirname = "None" #conf["dirs"]["data"]
         self.dirLabel = LongLabel(self.dirname)
-        self.props.filelist = sorted(
-            glob.glob(os.path.join(self.dirname, "raa01*.gz")))
-        self.props.frames = len(self.props.filelist)
-        self.props.actualFrame = 0
 
-        # Data source box (control via File menu bar)
-        #self.layout.setContentsMargins(1, 7, 1, 1)
         self.layout.addWidget(LongLabel("Current data directory"), 0, 0, 1, 7)
         self.layout.addWidget(self.dirLabel, 1, 0, 1, 7)
         self.dirLabel.setFixedWidth(200)
@@ -120,7 +114,6 @@ class MediaBox(DockBox):
         # Media Control
         self.data = QtGui.QSlider(QtCore.Qt.Horizontal)
         self.data.setMinimum(1)
-        self.data.setMaximum(self.props.frames)
         self.data.setTickInterval(1)
         self.data.setSingleStep(1)
         self.data.valueChanged.connect(self.update_slider)
@@ -130,14 +123,10 @@ class MediaBox(DockBox):
         self.speed.setTickInterval(10)
         self.speed.setSingleStep(10)
         self.speed.valueChanged.connect(self.speed_changed)
-        self.dateLabel = QtGui.QLabel("Date")#, self)
-        self.dateLabel.setMaximumHeight(10)
-        self.date = QtGui.QLabel("1900-01-01")#, self)
-        self.date.setMaximumHeight(10)
-        self.timeLabel = QtGui.QLabel("Time")#, self)
-        self.timeLabel.setMaximumHeight(10)
-        self.sliderLabel = QtGui.QLabel("00:00")#, self)
-        self.sliderLabel.setMaximumHeight(10)
+        self.dateLabel = QtGui.QLabel("Date")
+        self.date = QtGui.QLabel("1900-01-01")
+        self.timeLabel = QtGui.QLabel("Time")
+        self.sliderLabel = QtGui.QLabel("00:00")
         self.createMediaButtons()
         self.hline0 = QtGui.QFrame()
         self.hline0.setFrameShape(QtGui.QFrame.HLine)
@@ -145,7 +134,6 @@ class MediaBox(DockBox):
         self.hline1 = QtGui.QFrame()
         self.hline1.setFrameShape(QtGui.QFrame.HLine)
         self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
-        # self.mediabox.setContentsMargins(1, 20, 1, 1)
 
         self.layout.addWidget(self.hline0, 0, 0, 1, 7)
         self.layout.addWidget(self.dateLabel, 1, 0, 1, 7)
@@ -160,9 +148,6 @@ class MediaBox(DockBox):
         self.layout.addWidget(self.hline1, 5, 0, 1, 7)
 
         self.props.props_changed.connect(self.update_props)
-
-        print("MediaBox")
-
 
     def createMediaButtons(self):
         iconSize = QtCore.QSize(18, 18)
@@ -261,4 +246,5 @@ class Properties(QtCore.QObject):
         self.dir = conf["dirs"]["data"]
         self.filelist = glob.glob(os.path.join(self.dir, "raa01*"))
         self.frames = len(self.filelist)
+        self.actualFrame = 0
         self.signal_props_changed.emit()

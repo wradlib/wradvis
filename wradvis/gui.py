@@ -15,7 +15,6 @@ from wradvis import utils
 from wradvis.config import conf
 
 
-
 class MainWindow(QtGui.QMainWindow):
 
     def __init__(self, parent=None):
@@ -41,14 +40,10 @@ class MainWindow(QtGui.QMainWindow):
         self.swapper.append(self.mwidget)
 
         # need some tracer for the mouse position
-        #self.rwidget.canvas.mouse_moved.connect(self.mouse_moved)
         self.rwidget.canvas.key_pressed.connect(self.keyPressEvent)
 
         # add PropertiesWidget
         self.props = Properties()
-        #self.props.signal_slider_changed.connect(self.slider_changed)
-
-        #self.props.signal_speed_changed.connect(self.speed)
 
         # add Horizontal Splitter and the three widgets
         self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
@@ -64,7 +59,7 @@ class MainWindow(QtGui.QMainWindow):
         self.connect_signals()
 
         # finish init
-        self.slider_changed()
+        self.props.update_props()
 
     def connect_signals(self):
         self.mediabox.signal_playpause_changed.connect(self.start_stop)
