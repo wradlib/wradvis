@@ -13,19 +13,16 @@
 from configparser import ConfigParser
 import os
 
-# Initialise default configuration object
 
+# Initialise default configuration object
 def init_conf():
 
     conf = ConfigParser()
 
     conf["dirs"] = {"data": os.path.join(os.getcwd(), "data/rw/20160529") }
+    conf["source"] = {"product": "RW", "loc": ""}
     conf["vis"] = {"clim": (0,50)}
 
     return(conf)
 
 conf = init_conf()
-
-
-
-
