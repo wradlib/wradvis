@@ -11,7 +11,7 @@ from PyQt4 import QtGui, QtCore
 
 from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
-from vispy.visuals.transforms import STTransform, BaseTransform, MatrixTransform
+from vispy.visuals.transforms import STTransform, BaseTransform
 from vispy.scene.cameras import PanZoomCamera
 from vispy.scene.visuals import Image, ColorBar, Markers, Text
 from vispy.geometry import Rect
@@ -236,6 +236,22 @@ class PolarTransform(BaseTransform):
     NonScaling = False
     Isometric = False
 
+    def map(self, coords):
+        ret = np.empty(coords.shape, coords.dtype)
+        ret[..., 0] = coords[..., 1] * np.cos(coords[..., 0])
+        ret[..., 1] = coords[..., 1] * np.sin(coords[..., 0])
+        for i in range(2, coords.shape[-1]):  # copy any further axes
+            ret[..., i] = coords[..., i]
+        return ret
+
+    def imap(self, coords):
+        ret = np.empty(coords.shape, coords.dtype)
+        ret[..., 0] = np.arctan2(coords[..., 0], coords[..., 1])
+        ret[..., 1] = (coords[..., 0]**2 + coords[..., 1]**2) ** 0.5
+        for i in range(2, coords.shape[-1]):  # copy any further axes
+            ret[..., i] = coords[..., i]
+        return ret
+
 
 class DXCanvas(SceneCanvas):
     def __init__(self, **kwargs):
@@ -251,6 +267,7 @@ class DXCanvas(SceneCanvas):
         self.view = self.grid.add_view(row=0, col=0)
         self.view.border_color = (0.5, 0.5, 0.5, 1)
 
+        # This is hardcoded now, but maybe handled as the data source changes
         img_data = np.zeros((360, 128))
 
         # initialize colormap, we take cubehelix for now
@@ -264,11 +281,8 @@ class DXCanvas(SceneCanvas):
                            clim=(-32.5, 95),
                            parent=self.view.scene)
 
-        tr = MatrixTransform()
-        tr.rotate(0, (-1, -1, 1))
-        #tr.rotate(30, (1, 0, 0))
-
-        self.image.transform = (tr * STTransform(translate=(0, 0, 0)) * PolarTransform())
+        self.image.transform = (STTransform(translate=(128, 128, 0)) *
+                                PolarTransform())
 
         # add signal emitters
         self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
@@ -279,43 +293,75 @@ class DXCanvas(SceneCanvas):
 
         # create PanZoomCamera
         self.cam = PanZoomCamera(name="PanZoom",
-                                 rect=Rect(0, 0, 900, 900),
+                                 rect=Rect(0, 0, 256, 256),
                                  aspect=1,
                                  parent=self.view.scene)
 
         self.view.camera = self.cam
 
+        self._mouse_position = None
+
         self.freeze()
         self.measure_fps()
 
     def on_mouse_move(self, event):
-        print(event)
-        #point = self.scene.node_transform(self.image).map(event.pos)[:2]
-        #self._mouse_position = point
+        tr = self.scene.node_transform(self.image)
+        point = tr.map(event.pos)[:2]
+        if point[0] < 0:
+            point[0] += 2 * np.pi
+        point[0] = np.rad2deg(point[0])
+        self._mouse_position = point
         # emit signal
-        #self.mouse_moved(event)
+        self.mouse_moved(event)
 
     def on_key_press(self, event):
         self.key_pressed(event)
 
 
 class RadolanWidget(QtGui.QWidget):
-    def __init__(self):
-        QtGui.QWidget.__init__(self)
-        #self.canvas = RadolanCanvas()
-        self.canvas = DXCanvas()
-        self.canvas.create_native()
-        self.canvas.native.setParent(self)
+    def __init__(self, parent=None):
+        super(RadolanWidget, self).__init__(parent)
+        self.parent = parent
+        self.rcanvas = RadolanCanvas()
+        self.rcanvas.create_native()
+        self.rcanvas.native.setParent(self)
+        self.pcanvas = DXCanvas()
+        self.pcanvas.create_native()
+        self.pcanvas.native.setParent(self)
         self.cbar = ColorbarCanvas()
         self.cbar.create_native()
         self.cbar.native.setParent(self)
 
+        self.canvas = self.rcanvas
+
+        # canvas swapper
+        self.swapper = {}
+        self.swapper['R'] = self.rcanvas.native
+        self.swapper['P'] = self.pcanvas.native
+
         self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
-        self.splitter.addWidget(self.canvas.native)
+        self.splitter.addWidget(self.swapper['R'])
+        self.splitter.addWidget(self.swapper['P'])
+        self.swapper['P'].hide()
         self.splitter.addWidget(self.cbar.native)
+
+        # stretchfactors for correct splitter behaviour
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setStretchFactor(2, 0)
         self.hbl = QtGui.QHBoxLayout()
         self.hbl.addWidget(self.splitter)
         self.setLayout(self.hbl)
+
+    def set_canvas(self, type):
+        if type == 'DX':
+            self.canvas = self.pcanvas
+            self.swapper['P'].show()
+            self.swapper['R'].hide()
+        else:
+            self.canvas = self.rcanvas
+            self.swapper['R'].show()
+            self.swapper['P'].hide()
 
     def set_data(self, data):
         self.canvas.image.set_data(data)

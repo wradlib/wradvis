@@ -63,10 +63,11 @@ class MouseBox(DockBox):
         self.layout.addWidget(self.hline2, 2, 0, 1, 3)
 
         # connect to signal
-        self.parent.rwidget.canvas.mouse_moved.connect(self.mouse_moved)
+        self.parent.rwidget.rcanvas.mouse_moved.connect(self.mouse_moved)
+        self.parent.rwidget.pcanvas.mouse_moved.connect(self.mouse_moved)
 
     def mouse_moved(self, event):
-        point = self.parent.rwidget.canvas._mouse_position
+        point = self.parent.iwidget.canvas._mouse_position
         self.mousePointXY.setText(
             "({0:d}, {1:d})".format(int(point[0]), int(point[1])))
         ll = utils.radolan_to_wgs84(point + self.r0)
@@ -229,6 +230,11 @@ class Properties(QtCore.QObject):
 
         if os.path.isdir(f):
             conf["dirs"]["data"] = str(f)
+            try:
+                _ , meta = utils.read_dx(glob.glob(os.path.join(self.dir, "raa0*"))[0])
+            except ValueError:
+                _, meta = utils.read_radolan(glob.glob(os.path.join(self.dir, "raa0*"))[0])
+            conf["source"]["product"] = meta['producttype']
             self.update_props()
 
     def save_conf(self):
@@ -244,7 +250,10 @@ class Properties(QtCore.QObject):
 
     def update_props(self):
         self.dir = conf["dirs"]["data"]
-        self.filelist = glob.glob(os.path.join(self.dir, "raa00*---bin"))
+        self.product = conf["source"]["product"]
+        self.parent.iwidget.set_canvas(self.product)
+        self.loc = conf.get("source", "loc")
+        self.filelist = glob.glob(os.path.join(self.dir, "raa0*{0}*".format(self.loc)))
         self.frames = len(self.filelist)
         self.actualFrame = 0
         self.signal_props_changed.emit()

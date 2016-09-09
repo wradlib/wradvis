@@ -28,7 +28,7 @@ class MainWindow(QtGui.QMainWindow):
         self.timer.timeout.connect(self.reload)
 
         # initialize RadolanCanvas
-        self.rwidget = RadolanWidget()
+        self.rwidget = RadolanWidget(self)
         self.iwidget = self.rwidget
 
         # initialize MplWidget
@@ -40,10 +40,10 @@ class MainWindow(QtGui.QMainWindow):
         self.swapper.append(self.mwidget)
 
         # need some tracer for the mouse position
-        self.rwidget.canvas.key_pressed.connect(self.keyPressEvent)
+        self.iwidget.canvas.key_pressed.connect(self.keyPressEvent)
 
         # add PropertiesWidget
-        self.props = Properties()
+        self.props = Properties(self)
 
         # add Horizontal Splitter and the three widgets
         self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
@@ -65,6 +65,7 @@ class MainWindow(QtGui.QMainWindow):
         self.mediabox.signal_playpause_changed.connect(self.start_stop)
         self.mediabox.signal_slider_changed.connect(self.slider_changed)
         self.mediabox.signal_speed_changed.connect(self.speed)
+        self.props.signal_props_changed.connect(self.slider_changed)
 
     def createActions(self):
         # Set data directory
@@ -132,9 +133,16 @@ class MainWindow(QtGui.QMainWindow):
 
     def slider_changed(self):
         try:
-            self.data, self.meta = utils.read_dx(
-                self.props.filelist[self.props.actualFrame])
-            #self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
+            # switching happens here,
+            # but we should just use a common reading function, where the
+            # underlying wradlib function is exchanged on switching data
+            # format
+            if self.props.product == 'DX':
+                self.data, self.meta = utils.read_dx(
+                    self.props.filelist[self.props.actualFrame])
+
+            else:
+                self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
         except IndexError:
             print("Could not read any data.")
         else:
