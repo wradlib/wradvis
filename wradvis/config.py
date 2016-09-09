@@ -21,7 +21,7 @@ def init_conf():
 
     conf["dirs"] = {"data": os.path.join(os.getcwd(), "data/rw/20160529") }
     conf["source"] = {"product": "RW", "loc": ""}
-    conf["vis"] = {"clim": (0,50)}
+    conf["vis"] = {"cmax": 50, "cmin": 0}
 
     return(conf)
 

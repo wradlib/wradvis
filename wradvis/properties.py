@@ -252,6 +252,8 @@ class Properties(QtCore.QObject):
         self.dir = conf["dirs"]["data"]
         self.product = conf["source"]["product"]
         self.parent.iwidget.set_canvas(self.product)
+        self.clim = (conf.get("vis", "cmin"), conf.get("vis", "cmax"))
+        self.parent.iwidget.set_clim(self.clim)
         self.loc = conf.get("source", "loc")
         self.filelist = glob.glob(os.path.join(self.dir, "raa0*{0}*".format(self.loc)))
         self.frames = len(self.filelist)

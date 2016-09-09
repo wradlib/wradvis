@@ -46,7 +46,7 @@ class ColorbarCanvas(SceneCanvas):
         self.cbar = ColorBar(center_pos=(0, 10),
                              size=np.array([400, 20]),
                              cmap=cmap,
-                             clim=conf["vis"]["clim"],
+                             clim=(conf["vis"]["cmin"], conf["vis"]["cmax"]),
                              label_str='measurement units',
                              orientation='right',
                              border_width=1,
@@ -281,6 +281,8 @@ class DXCanvas(SceneCanvas):
                            clim=(-32.5, 95),
                            parent=self.view.scene)
 
+        # Polar Transform takes care of making PPI from data array
+        # the translation moves the image to have the ppi centered
         self.image.transform = (STTransform(translate=(128, 128, 0)) *
                                 PolarTransform())
 
@@ -292,6 +294,7 @@ class DXCanvas(SceneCanvas):
         self.events.mouse_double_click.block()
 
         # create PanZoomCamera
+        # the camera should zoom to the ppi "bounding box"
         self.cam = PanZoomCamera(name="PanZoom",
                                  rect=Rect(0, 0, 256, 256),
                                  aspect=1,
@@ -366,3 +369,6 @@ class RadolanWidget(QtGui.QWidget):
     def set_data(self, data):
         self.canvas.image.set_data(data)
         self.canvas.update()
+
+    def set_clim(self, clim):
+        self.canvas.image.clim = clim
