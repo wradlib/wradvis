@@ -26,7 +26,7 @@ class ColorbarCanvas(SceneCanvas):
         super(ColorbarCanvas, self).__init__(keys='interactive', **kwargs)
 
         # set size ov Canvas
-        self.size = 50, 450
+        self.size = 60, 450
 
         # unfreeze needed to add more elements
         self.unfreeze()
@@ -55,7 +55,7 @@ class ColorbarCanvas(SceneCanvas):
 
         # add transform to Colorbar
         self.cbar.transform = STTransform(scale=(1, 1, 1),
-                                          translate=(20, 250, 0.5))
+                                          translate=(20, 225, 0.5))
 
         # whiten label and ticks
         self.cbar.label.color = 'white'
@@ -253,6 +253,7 @@ class PolarTransform(BaseTransform):
         return ret
 
 
+# Todo: The Orientation of the ppi is not yet correct
 class DXCanvas(SceneCanvas):
     def __init__(self, **kwargs):
         super(DXCanvas, self).__init__(keys='interactive', **kwargs)
@@ -372,3 +373,4 @@ class RadolanWidget(QtGui.QWidget):
 
     def set_clim(self, clim):
         self.canvas.image.clim = clim
+        self.cbar.cbar.clim = clim

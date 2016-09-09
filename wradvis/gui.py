@@ -143,6 +143,9 @@ class MainWindow(QtGui.QMainWindow):
 
             else:
                 self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
+                if self.props.product == 'RX':
+                    self.data = (self.data / 2) - 32.5
+
         except IndexError:
             print("Could not read any data.")
         else:
