@@ -11,7 +11,7 @@ from PyQt4 import QtGui, QtCore
 
 from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
-from vispy.visuals.transforms import STTransform, BaseTransform
+from vispy.visuals.transforms import STTransform, MatrixTransform, PolarTransform
 from vispy.scene.cameras import PanZoomCamera
 from vispy.scene.visuals import Image, ColorBar, Markers, Text
 from vispy.geometry import Rect
@@ -209,48 +209,15 @@ class RadolanCanvas(SceneCanvas):
         self.key_pressed(event)
 
 
-class PolarTransform(BaseTransform):
-    """Polar transform
-    Maps (theta, r, z) to (x, y, z), where `x = r*cos(theta)`
-    and `y = r*sin(theta)`.
-    """
-    glsl_map = """
-        vec4 polar_transform_map(vec4 pos) {
-            //return vec4(pos.y * cos(pos.x), pos.y * sin(pos.x), pos.z, 1);
-            return vec4(pos.x * cos(pos.y), pos.x * sin(pos.y), pos.z, 1);
-        }
-        """
-
+class PTransform(PolarTransform):
     glsl_imap = """
         vec4 polar_transform_map(vec4 pos) {
-            // TODO: need some modulo math to handle larger theta values..?
-            float theta = atan(radians(pos.y), radians(pos.x));
+            float theta = atan(radians(pos.x), radians(pos.y));
             theta = degrees(theta + 3.14159265358979323846);
             float r = length(pos.xy);
             return vec4(r, theta, pos.z, 1);
         }
         """
-
-    Linear = False
-    Orthogonal = False
-    NonScaling = False
-    Isometric = False
-
-    def map(self, coords):
-        ret = np.empty(coords.shape, coords.dtype)
-        ret[..., 0] = coords[..., 1] * np.cos(coords[..., 0])
-        ret[..., 1] = coords[..., 1] * np.sin(coords[..., 0])
-        for i in range(2, coords.shape[-1]):  # copy any further axes
-            ret[..., i] = coords[..., i]
-        return ret
-
-    def imap(self, coords):
-        ret = np.empty(coords.shape, coords.dtype)
-        ret[..., 0] = np.arctan2(coords[..., 0], coords[..., 1])
-        ret[..., 1] = (coords[..., 0]**2 + coords[..., 1]**2) ** 0.5
-        for i in range(2, coords.shape[-1]):  # copy any further axes
-            ret[..., i] = coords[..., i]
-        return ret
 
 
 # Todo: The Orientation of the ppi is not yet correct
@@ -282,10 +249,13 @@ class DXCanvas(SceneCanvas):
                            clim=(-32.5, 95),
                            parent=self.view.scene)
 
-        # Polar Transform takes care of making PPI from data array
-        # the translation moves the image to have the ppi centered
-        self.image.transform = (STTransform(translate=(128, 128, 0)) *
-                                PolarTransform())
+        # PTransform takes care of making PPI from data array
+        # rot rotates the ppi 180 deg (image origin is upper left)
+        # the translation moves the image to centere the ppi
+        rot = MatrixTransform()
+        rot.rotate(180, (0, 0, 1))
+        self.image.transform = (STTransform(translate=(128, 128, 0)) * rot *
+                                PTransform())
 
         # add signal emitters
         self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
@@ -311,8 +281,8 @@ class DXCanvas(SceneCanvas):
     def on_mouse_move(self, event):
         tr = self.scene.node_transform(self.image)
         point = tr.map(event.pos)[:2]
-        if point[0] < 0:
-            point[0] += 2 * np.pi
+        # we should actually move this into PTransform in the future
+        point[0] += np.pi
         point[0] = np.rad2deg(point[0])
         self._mouse_position = point
         # emit signal
