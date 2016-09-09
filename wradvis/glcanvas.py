@@ -175,7 +175,6 @@ class RadolanCanvas(SceneCanvas):
         self.text = []
         i = 0
         for p, n in zip(pos_scene, cnameList):
-            print(i, p, n)
             m, t = self.create_marker(i, p, n)
             self.markers.append(m)
             self.text.append(t)
@@ -281,7 +280,7 @@ class DXCanvas(SceneCanvas):
     def on_mouse_move(self, event):
         tr = self.scene.node_transform(self.image)
         point = tr.map(event.pos)[:2]
-        # we should actually move this into PTransform in the future
+        # todo: we should actually move this into PTransform in the future
         point[0] += np.pi
         point[0] = np.rad2deg(point[0])
         self._mouse_position = point

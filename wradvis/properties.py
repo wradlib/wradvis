@@ -70,7 +70,14 @@ class MouseBox(DockBox):
         point = self.parent.iwidget.canvas._mouse_position
         self.mousePointXY.setText(
             "({0:d}, {1:d})".format(int(point[0]), int(point[1])))
-        ll = utils.radolan_to_wgs84(point + self.r0)
+
+        # Todo: move this all to utils and use a generalized
+        # ll-retrieving function
+        if self.parent.props.product != 'DX':
+            ll = utils.radolan_to_wgs84(point + self.r0)
+        else:
+            ll = utils.dx_to_wgs84(point)
+
         self.mousePointLL.setText(
             "({0:.2f}, {1:.2f})".format(ll[0], ll[1]))
 

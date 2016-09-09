@@ -9,6 +9,7 @@
 """
 
 import wradlib as wrl
+import numpy as np
 from wradvis.config import conf
 
 
@@ -30,6 +31,31 @@ def radolan_to_wgs84(coords):
                               projection_source=proj_stereo,
                               projection_target=proj_wgs)
     return ll
+
+def dx_to_wgs84(coords):
+
+    # currently works only with radar feldberg
+    #Todo: make this work with all DWD-radars and also with other radars
+    radar = {'name': 'Feldberg', 'wmo': 10908, 'lon': 8.00361,
+             'lat': 47.87361,
+             'alt': 1516.10}
+
+    sitecoords = (radar["lon"], radar["lat"],
+                  radar["alt"])
+
+    proj_radar = wrl.georef.create_osr("aeqd", lat_0=radar["lat"],
+                                       lon_0=radar["lon"])
+
+    radius = wrl.georef.get_earth_radius(radar["lat"], proj_radar)
+
+    lon, lat, height = wrl.georef.polar2lonlatalt_n(coords[1] * 1000,
+                                                    coords[0],
+                                                    0.8,
+                                                    sitecoords,
+                                                    re=radius,
+                                                    ke=4. / 3.)
+
+    return np.hstack((lon, lat))
 
 
 def get_radolan_grid():

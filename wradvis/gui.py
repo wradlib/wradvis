@@ -133,7 +133,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def slider_changed(self):
         try:
-            # switching happens here,
+            # Todo: switching happens here,
             # but we should just use a common reading function, where the
             # underlying wradlib function is exchanged on switching data
             # format
@@ -145,7 +145,6 @@ class MainWindow(QtGui.QMainWindow):
                 self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
                 if self.props.product == 'RX':
                     self.data = (self.data / 2) - 32.5
-
         except IndexError:
             print("Could not read any data.")
         else:
