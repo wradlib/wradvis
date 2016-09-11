@@ -65,8 +65,12 @@ class MouseBox(DockBox):
         # connect to signal
         self.parent.rwidget.rcanvas.mouse_moved.connect(self.mouse_moved)
         self.parent.rwidget.pcanvas.mouse_moved.connect(self.mouse_moved)
+        self.parent.mwidget.rcanvas.mouse_moved.connect(self.mouse_moved)
 
     def mouse_moved(self, event):
+        print(event)
+
+        # todo: check if originating from mpl and adapt self.r0 correctly
         point = self.parent.iwidget.canvas._mouse_position
         self.mousePointXY.setText(
             "({0:d}, {1:d})".format(int(point[0]), int(point[1])))

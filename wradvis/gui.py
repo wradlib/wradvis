@@ -162,6 +162,7 @@ class MainWindow(QtGui.QMainWindow):
             self.swapper = self.swapper[::-1]
             self.iwidget = self.swapper[0]
             self.swapper[0].show()
+            self.swapper[0].setFocus()
             self.swapper[1].hide()
 
 
