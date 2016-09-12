@@ -11,7 +11,7 @@ from PyQt4 import QtGui, QtCore
 
 from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
-from vispy.visuals.transforms import STTransform
+from vispy.visuals.transforms import STTransform, MatrixTransform, PolarTransform
 from vispy.scene.cameras import PanZoomCamera
 from vispy.scene.visuals import Image, ColorBar, Markers, Text
 from vispy.geometry import Rect
@@ -26,7 +26,7 @@ class ColorbarCanvas(SceneCanvas):
         super(ColorbarCanvas, self).__init__(keys='interactive', **kwargs)
 
         # set size ov Canvas
-        self.size = 50, 450
+        self.size = 60, 450
 
         # unfreeze needed to add more elements
         self.unfreeze()
@@ -46,7 +46,7 @@ class ColorbarCanvas(SceneCanvas):
         self.cbar = ColorBar(center_pos=(0, 10),
                              size=np.array([400, 20]),
                              cmap=cmap,
-                             clim=conf["vis"]["clim"],
+                             clim=(conf["vis"]["cmin"], conf["vis"]["cmax"]),
                              label_str='measurement units',
                              orientation='right',
                              border_width=1,
@@ -55,7 +55,7 @@ class ColorbarCanvas(SceneCanvas):
 
         # add transform to Colorbar
         self.cbar.transform = STTransform(scale=(1, 1, 1),
-                                          translate=(20, 250, 0.5))
+                                          translate=(20, 225, 0.5))
 
         # whiten label and ticks
         self.cbar.label.color = 'white'
@@ -97,6 +97,7 @@ class RadolanCanvas(SceneCanvas):
         # this is the most nice colormap for radar in vispy
         cmap = 'cubehelix'
 
+        self.images = []
         # initialize Image Visual with img_data
         # add to view
         self.image = Image(img_data,
@@ -105,6 +106,8 @@ class RadolanCanvas(SceneCanvas):
                            cmap=cmap,
                            clim=(0,50),
                            parent=self.view.scene)
+
+        self.images.append(self.image)
 
         # add transform to Image
         # (mostly positioning within canvas)
@@ -175,7 +178,6 @@ class RadolanCanvas(SceneCanvas):
         self.text = []
         i = 0
         for p, n in zip(pos_scene, cnameList):
-            print(i, p, n)
             m, t = self.create_marker(i, p, n)
             self.markers.append(m)
             self.text.append(t)
@@ -185,7 +187,7 @@ class RadolanCanvas(SceneCanvas):
         point = self.scene.node_transform(self.image).map(event.pos)[:2]
         self._mouse_position = point
         # emit signal
-        self.mouse_moved()
+        self.mouse_moved(event)
 
     def on_mouse_press(self, event):
         self.view.interactive = False
@@ -209,23 +211,185 @@ class RadolanCanvas(SceneCanvas):
         self.key_pressed(event)
 
 
+class PTransform(PolarTransform):
+    glsl_imap = """
+        vec4 polar_transform_map(vec4 pos) {
+            float theta = atan(radians(pos.x), radians(pos.y));
+            theta = degrees(theta + 3.14159265358979323846);
+            float r = length(pos.xy);
+            return vec4(r, theta, pos.z, 1);
+        }
+        """
+
+
+class PolarImage(Image):
+    def __init__(self, source=None, **kwargs):
+        super(PolarImage, self).__init__(**kwargs)
+
+        self.unfreeze()
+
+        # source should be an object, which contains information about
+        # a specific radar source
+        self.source = source
+
+        # source should contain the radar coordinates in some usable format
+        # here I assume offset from lower left (0,0)
+        if source is not None:
+            xoff = source['X']
+            yoff = source['Y']
+        else:
+            xoff = 0
+            yoff = 0
+
+        # this takes the image sizes and uses it for transformation
+        self.theta = self._data.shape[0]
+        self.range = self._data.shape[1]
+
+        # PTransform takes care of making PPI from data array
+        # rot rotates the ppi 180 deg (image origin is upper left)
+        # the translation moves the image to centere the ppi
+        rot = MatrixTransform()
+        rot.rotate(180, (0, 0, 1))
+        self.transform = (STTransform(translate=(self.range+xoff, self.range+yoff, 0)) *
+                          rot *
+                          PTransform())
+        self.freeze()
+
+
+class DXCanvas(SceneCanvas):
+    def __init__(self, **kwargs):
+        super(DXCanvas, self).__init__(keys='interactive', **kwargs)
+
+        self.size = 450, 450
+        self.unfreeze()
+
+        # add grid central widget
+        self.grid = self.central_widget.add_grid()
+
+        # add view to grid
+        self.view = self.grid.add_view(row=0, col=0)
+        self.view.border_color = (0.5, 0.5, 0.5, 1)
+
+        # This is hardcoded now, but maybe handled as the data source changes
+        self.img_data = np.zeros((360, 128))
+
+        # initialize colormap, we take cubehelix for now
+        # this is the most nice colormap for radar in vispy
+        cmap = 'cubehelix'
+
+        # this way we can hold several images on the same scene
+        # usable for radar mosaic
+        self.images = []
+        self.image = PolarImage(source=None,
+                                data=self.img_data,
+                                method='impostor',
+                                # interpolation='bicubic',
+                                cmap=cmap,
+                                clim=(-32.5, 95),
+                                parent=self.view.scene)
+
+        self.images.append(self.image)
+
+        # add signal emitters
+        self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
+        self.key_pressed = EventEmitter(source=self, type="key_pressed")
+
+        # block double clicks
+        self.events.mouse_double_click.block()
+
+        # create PanZoomCamera
+        # the camera should zoom to the ppi "bounding box"
+        self.cam = PanZoomCamera(name="PanZoom",
+                                 rect=Rect(0, 0, 256, 256),
+                                 aspect=1,
+                                 parent=self.view.scene)
+
+        self.view.camera = self.cam
+
+        self._mouse_position = None
+
+        self.freeze()
+        self.measure_fps()
+
+    def on_mouse_move(self, event):
+        tr = self.scene.node_transform(self.image)
+        point = tr.map(event.pos)[:2]
+        # todo: we should actually move this into PTransform in the future
+        point[0] += np.pi
+        point[0] = np.rad2deg(point[0])
+        self._mouse_position = point
+        # emit signal
+        self.mouse_moved(event)
+
+    def on_key_press(self, event):
+        self.key_pressed(event)
+
+    def add_image(self, radar):
+        # this adds an image to the images list
+        image = PolarImage(source=radar,
+                           data=self.img_data,
+                           method='impostor',
+                           # interpolation='bicubic',
+                           cmap='cubehelix',
+                           clim=(-32.5, 95),
+                           parent=self.view.scene)
+        self.images.append(image)
+
+
 class RadolanWidget(QtGui.QWidget):
-    def __init__(self):
-        QtGui.QWidget.__init__(self)
-        self.canvas = RadolanCanvas()
-        self.canvas.create_native()
-        self.canvas.native.setParent(self)
+    def __init__(self, parent=None):
+        super(RadolanWidget, self).__init__(parent)
+        self.parent = parent
+        self.rcanvas = RadolanCanvas()
+        self.rcanvas.create_native()
+        self.rcanvas.native.setParent(self)
+        self.pcanvas = DXCanvas()
+        self.pcanvas.create_native()
+        self.pcanvas.native.setParent(self)
         self.cbar = ColorbarCanvas()
         self.cbar.create_native()
         self.cbar.native.setParent(self)
 
+        self.canvas = self.rcanvas
+
+        # canvas swapper
+        self.swapper = {}
+        self.swapper['R'] = self.rcanvas.native
+        self.swapper['P'] = self.pcanvas.native
+
         self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
-        self.splitter.addWidget(self.canvas.native)
+        self.splitter.addWidget(self.swapper['R'])
+        self.splitter.addWidget(self.swapper['P'])
+        self.swapper['P'].hide()
         self.splitter.addWidget(self.cbar.native)
+
+        # stretchfactors for correct splitter behaviour
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setStretchFactor(2, 0)
         self.hbl = QtGui.QHBoxLayout()
         self.hbl.addWidget(self.splitter)
         self.setLayout(self.hbl)
 
+    def set_canvas(self, type):
+        if type == 'DX':
+            self.canvas = self.pcanvas
+            self.swapper['P'].show()
+            self.swapper['R'].hide()
+        else:
+            self.canvas = self.rcanvas
+            self.swapper['R'].show()
+            self.swapper['P'].hide()
+
     def set_data(self, data):
-        self.canvas.image.set_data(data)
+        # now this sets same data to all images
+        # we would need to do the data loading
+        # via objects (maybe radar-object from above)
+        # and use
+        for im in self.canvas.images:
+            im.set_data(data)
         self.canvas.update()
+
+    def set_clim(self, clim):
+        self.canvas.image.clim = clim
+        self.cbar.cbar.clim = clim

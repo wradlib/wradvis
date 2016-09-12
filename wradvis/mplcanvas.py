@@ -11,7 +11,7 @@ import matplotlib
 matplotlib.use('Qt4Agg')
 
 
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.cm import get_cmap
@@ -22,6 +22,8 @@ from wradvis import config
 
 
 class MplCanvas(FigureCanvas):
+
+    mouse_moved = QtCore.pyqtSignal(matplotlib.backend_bases.MouseEvent, name='mouse_moved')
 
     def __init__(self):#, parent, props):
         # plot definition
@@ -52,9 +54,9 @@ class MplCanvas(FigureCanvas):
         self.ax.set_aspect('equal')
         self.ax.set_xlim([grid[..., 0].min(), grid[..., 0].max()])
         self.ax.set_ylim([grid[..., 1].min(), grid[..., 1].max()])
+        self._mouse_position = None
 
         self.create_cities()
-
 
     def create_cities(self):
         self.selected = None
@@ -74,6 +76,7 @@ class MplCanvas(FigureCanvas):
                              horizontalalignment='right',
                              verticalalignment='top')
         self.mpl_connect('pick_event', self.onpick_cities)
+        self.mpl_connect('motion_notify_event', self.on_move)
 
     def onpick_cities(self, event):
         artist = event.artist
@@ -95,14 +98,45 @@ class MplCanvas(FigureCanvas):
     def on_key_press(self, event):
         self.key_pressed(event)
 
+    def on_move(self, event):
+        if event.inaxes:
+            ax = event.inaxes  # the axes instance
+            print('data coords %f %f' % (event.xdata, event.ydata))
+            self._mouse_position = np.array([event.xdata, event.ydata])
+            self.mouse_moved.emit(event)
+
 
 class MplWidget(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
-        self.canvas = MplCanvas()
-        self.vbl = QtGui.QVBoxLayout()
-        self.vbl.addWidget(self.canvas)
-        self.setLayout(self.vbl)
+
+        self.rcanvas = MplCanvas()
+        self.pcanvas = MplCanvas()
+
+        self.canvas = self.rcanvas
+
+        # canvas swapper
+        self.swapper = {}
+        self.swapper['R'] = self.rcanvas
+        self.swapper['P'] = self.pcanvas
+
+        #self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        #self.splitter.addWidget(self.swapper['R'])
+        #self.splitter.addWidget(self.swapper['P'])
+        #self.swapper['P'].hide()
+
+        # stretchfactors for correct splitter behaviour
+        #self.splitter.setStretchFactor(0, 1)
+        #self.splitter.setStretchFactor(1, 1)
+        #self.splitter.setStretchFactor(2, 0)
+        self.hbl = QtGui.QHBoxLayout()
+        self.hbl.addWidget(self.swapper['R'])
+        self.hbl.addWidget(self.swapper['P'])
+        self.setLayout(self.hbl)
+        self.swapper['P'].hide()
+        #self.vbl = QtGui.QVBoxLayout()
+        #self.vbl.addWidget(self.canvas)
+        #self.setLayout(self.vbl)
 
     def set_data(self, data):
         self.canvas.pm.set_array(data[:-1, :-1].ravel())
