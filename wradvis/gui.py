@@ -6,6 +6,7 @@
 #!/usr/bin/env python
 
 from PyQt4 import QtGui, QtCore
+import vispy
 
 # other wradvis imports
 from wradvis.glcanvas import RadolanWidget
@@ -19,6 +20,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
+
+        print(vispy.sys_info())
 
         self.resize(825, 500)
         self.setWindowTitle('RADOLAN Viewer')
@@ -117,8 +120,8 @@ class MainWindow(QtGui.QMainWindow):
         self.toolsMenu.addAction(dock.toggleViewAction())
 
     def reload(self):
-        if self.mediabox.data.value() == self.mediabox.data.maximum():
-            self.mediabox.data.setValue(1)
+        if self.mediabox.data.value() >= self.mediabox.range.high():
+            self.mediabox.data.setValue(self.mediabox.range.low())
         else:
             self.mediabox.data.setValue(self.mediabox.data.value() + 1)
 
