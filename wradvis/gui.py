@@ -62,7 +62,7 @@ class MainWindow(QtGui.QMainWindow):
         self.connect_signals()
 
         # finish init
-        self.props.update_props()
+        #self.props.update_props()
 
     def connect_signals(self):
         self.mediabox.signal_playpause_changed.connect(self.start_stop)
@@ -145,9 +145,10 @@ class MainWindow(QtGui.QMainWindow):
                     self.props.filelist[pos])
 
             else:
-                self.data, _ = utils.read_radolan(self.props.filelist[pos])
-                if self.props.product == 'RX':
-                    self.data = (self.data / 2) - 32.5
+                self.data = self.props.mem.variables['data'][pos][:]#utils.read_radolan(self.props.filelist[pos])
+                #print(self.data.max())
+                #if self.props.product == 'RX':
+                    #self.data = (self.data / 2) - 32.5
         except IndexError:
             print("Could not read any data.")
         else:

@@ -423,7 +423,6 @@ class MediaBox(DockBox):
         self.signal_speed_changed.emit()
 
     def time_slider_moved(self, position):
-        self.props.actualFrame = position
         self.current_time.setCurrentIndex(position)
         self.signal_time_slider_changed.emit(position)
 
@@ -481,7 +480,6 @@ class MediaBox(DockBox):
         self.time_slider.blockSignals(True)
         self.time_slider.setValue(value)
         self.time_slider.blockSignals(False)
-        self.props.actualFrame = value
         self.signal_time_slider_changed.emit(value)
 
 
@@ -496,7 +494,8 @@ class Properties(QtCore.QObject):
         super(Properties, self).__init__(parent)
 
         self.parent = parent
-        self.update_props()
+        self.mem = None
+        #self.update_props()
 
     def set_datadir(self):
         f = QtGui.QFileDialog.getExistingDirectory(self.parent,
@@ -533,8 +532,9 @@ class Properties(QtCore.QObject):
         self.loc = conf.get("source", "loc")
         self.filelist = glob.glob(os.path.join(self.dir, "raa0*{0}*".format(self.loc)))
         self.frames = len(self.filelist) - 1
-        self.actualFrame = 0
-        self.cube = self.create_data_cube()
+        if self.mem is not None:
+            self.mem.close()
+        self.cube, self.mem = self.create_data_cube()
         self.signal_props_changed.emit(0)
 
     def create_data_cube(self):
@@ -543,11 +543,23 @@ class Properties(QtCore.QObject):
 
             Here we just add the metadata dictionaries
         '''
+        import tempfile
         cube = []
-        for name in self.filelist:
+        mem = None
+
+        for i, name in enumerate(self.filelist):
             if self.product == 'DX':
                 _, meta = utils.read_dx(name)
             else:
-                _, meta = utils.read_radolan(name)
+                data, meta = utils.read_radolan(name)
+                if i == 0:
+                    mem = utils.create_ncdf('tmpfile.nc', meta, units='dBZ')
+                if mem is not None:
+                    utils.add_ncdf(mem, data, i, meta)
             cube.append(meta)
-        return cube
+        if mem is not None:
+            mem.variables['data'].set_auto_maskandscale(True)
+        import netCDF4 as nc
+        #mem = nc.Dataset('tmpfile.nc', 'r', format='NETCDF4')
+
+        return cube, mem
