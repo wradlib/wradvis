@@ -214,7 +214,7 @@ def create_ncdf(filename, attrs, units='original'):
     missing_value = None
 
     # create NETCDF4 file in memory
-    id = nc.Dataset(filename, 'w', format='NETCDF4', diskless=True,   persist=True)
+    id = nc.Dataset(filename, 'w', format='NETCDF4', diskless=True, persist=True)
     #id.close()
     #id = nc.Dataset(filename, 'a', format='NETCDF4')
 

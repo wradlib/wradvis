@@ -28,7 +28,6 @@ class MainWindow(QtGui.QMainWindow):
         self._need_canvas_refresh = False
 
         self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.reload)
 
         # initialize RadolanCanvas
         self.rwidget = RadolanWidget(self)
@@ -61,14 +60,10 @@ class MainWindow(QtGui.QMainWindow):
 
         self.connect_signals()
 
-        # finish init
-        #self.props.update_props()
-
     def connect_signals(self):
         self.mediabox.signal_playpause_changed.connect(self.start_stop)
-        self.mediabox.signal_time_slider_changed.connect(self.slider_changed)
         self.mediabox.signal_speed_changed.connect(self.speed)
-        self.props.signal_props_changed.connect(self.slider_changed)
+        #self.props.signal_props_changed.connect(self.slider_changed)
 
     def createActions(self):
         # Set  directory
@@ -119,12 +114,6 @@ class MainWindow(QtGui.QMainWindow):
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
         self.toolsMenu.addAction(dock.toggleViewAction())
 
-    def reload(self):
-        if self.mediabox.time_slider.value() >= self.mediabox.range.high():
-            self.mediabox.time_slider.setValue(self.mediabox.range.low())
-        else:
-            self.mediabox.time_slider.setValue(self.mediabox.time_slider.value() + 1)
-
     def start_stop(self):
         if self.timer.isActive():
             self.timer.stop()
@@ -133,26 +122,6 @@ class MainWindow(QtGui.QMainWindow):
 
     def speed(self):
         self.timer.setInterval(self.mediabox.speed.value())
-
-    def slider_changed(self, pos):
-        try:
-            # Todo: switching happens here,
-            # but we should just use a common reading function, where the
-            # underlying wradlib function is exchanged on switching
-            # format
-            if self.props.product == 'DX':
-                self.data, _ = utils.read_dx(
-                    self.props.filelist[pos])
-
-            else:
-                self.data = self.props.mem.variables['data'][pos][:]#utils.read_radolan(self.props.filelist[pos])
-                #print(self.data.max())
-                #if self.props.product == 'RX':
-                    #self.data = (self.data / 2) - 32.5
-        except IndexError:
-            print("Could not read any data.")
-        else:
-            self.iwidget.set_data(self.data)
 
     def keyPressEvent(self, event):
         if isinstance(event, QtGui.QKeyEvent):

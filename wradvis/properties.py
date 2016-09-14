@@ -328,7 +328,7 @@ class SourceBox(DockBox):
 class MediaBox(DockBox):
 
     signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
-    signal_time_slider_changed = QtCore.pyqtSignal(int, name='dataslidervalueChanged')
+    #signal_time_slider_changed = QtCore.pyqtSignal(int, name='dataslidervalueChanged')
     signal_speed_changed = QtCore.pyqtSignal(name='speedChanged')
 
     def __init__(self, parent=None):
@@ -393,6 +393,7 @@ class MediaBox(DockBox):
         self.layout.addWidget(self.hline1, 8, 0, 1, 5)
 
         self.props.props_changed.connect(self.update_props)
+        self.props.parent.timer.timeout.connect(self.seekforward)
 
     def createMediaButtons(self):
         iconSize = QtCore.QSize(18, 18)
@@ -424,7 +425,25 @@ class MediaBox(DockBox):
 
     def time_slider_moved(self, position):
         self.current_time.setCurrentIndex(position)
-        self.signal_time_slider_changed.emit(position)
+        try:
+            # Todo: switching happens here,
+            # but we should just use a common reading function, where the
+            # underlying wradlib function is exchanged on switching
+            # format
+            if self.props.product == 'DX':
+                data, _ = utils.read_dx(
+                    self.props.filelist[position])
+
+            else:
+                data = self.props.mem.variables['data'][position][:]
+                # print(self.data.max())
+                # if self.props.product == 'RX':
+                # self.data = (self.data / 2) - 32.5
+        except IndexError:
+            print("Could not read any data.")
+        else:
+            self.props.parent.iwidget.set_data(data)
+
 
     def seekforward(self):
         if self.time_slider.value() >= self.range.high():
@@ -477,10 +496,7 @@ class MediaBox(DockBox):
         self.range.setHigh(self.range_end.currentIndex())
 
     def current_time_changed(self, value):
-        self.time_slider.blockSignals(True)
         self.time_slider.setValue(value)
-        self.time_slider.blockSignals(False)
-        self.signal_time_slider_changed.emit(value)
 
 
 # Properties
@@ -495,7 +511,7 @@ class Properties(QtCore.QObject):
 
         self.parent = parent
         self.mem = None
-        #self.update_props()
+        self.update_props()
 
     def set_datadir(self):
         f = QtGui.QFileDialog.getExistingDirectory(self.parent,
@@ -553,7 +569,7 @@ class Properties(QtCore.QObject):
             else:
                 data, meta = utils.read_radolan(name)
                 if i == 0:
-                    mem = utils.create_ncdf('tmpfile.nc', meta, units='dBZ')
+                    mem = utils.create_ncdf('tmpfile.nc', meta, units='normal')
                 if mem is not None:
                     utils.add_ncdf(mem, data, i, meta)
             cube.append(meta)
