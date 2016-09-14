@@ -57,6 +57,9 @@ class TimeSlider(QtGui.QSlider):
         This class emits the same signals as the QSlider base class, with the
         exception of valueChanged
     """
+
+    signal_range_moved = QtCore.pyqtSignal(int, int, name='rangeMoved')
+
     def __init__(self, *args):
         super(TimeSlider, self).__init__(*args)
 
@@ -103,6 +106,7 @@ class TimeSlider(QtGui.QSlider):
             else:
                 opt.subControls = QtGui.QStyle.SC_SliderHandle
 
+            print(self.tickPosition(), self.NoTicks)
             if self.tickPosition() != self.NoTicks:
                 opt.subControls |= QtGui.QStyle.SC_SliderTickmarks
 
@@ -187,10 +191,14 @@ class TimeSlider(QtGui.QSlider):
             self._high = new_pos
 
         self.click_offset = new_pos
-
         self.update()
+        self.signal_range_moved.emit(self._low, self._high)
 
-        self.emit(QtCore.SIGNAL('sliderMoved(int)'), new_pos)
+        #self.click_offset = new_pos
+
+        #self.update()
+
+        #self.emit(QtCore.SIGNAL('sliderMoved(int)'), new_pos)
 
     def __pick(self, pt):
         if self.orientation() == QtCore.Qt.Horizontal:
@@ -301,10 +309,10 @@ class SourceBox(DockBox):
         self.hline = QtGui.QFrame()
         self.hline.setFrameShape(QtGui.QFrame.HLine)
         self.hline.setFrameShadow(QtGui.QFrame.Sunken)
-        self.dirname = "None" #conf["dirs"]["data"]
+        self.dirname = "None" #conf["dirs"]["time_slider"]
         self.dirLabel = LongLabel(self.dirname)
 
-        self.layout.addWidget(LongLabel("Current data directory"), 0, 0, 1, 7)
+        self.layout.addWidget(LongLabel("Current time_slider directory"), 0, 0, 1, 7)
         self.layout.addWidget(self.dirLabel, 1, 0, 1, 7)
         self.dirLabel.setFixedWidth(200)
         palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.darkGreen)
@@ -320,38 +328,39 @@ class SourceBox(DockBox):
 class MediaBox(DockBox):
 
     signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
-    signal_slider_changed = QtCore.pyqtSignal(name='slidervalueChanged')
+    signal_time_slider_changed = QtCore.pyqtSignal(int, name='dataslidervalueChanged')
     signal_speed_changed = QtCore.pyqtSignal(name='speedChanged')
 
     def __init__(self, parent=None):
         super(MediaBox, self).__init__(parent)
-        # Media Control
-        self.data = QtGui.QSlider(QtCore.Qt.Horizontal)
-        self.data.setMinimum(1)
-        self.data.setTickInterval(1)
-        self.data.setSingleStep(1)
-        self.data.valueChanged.connect(self.update_slider)
 
+        # Time Slider
+        self.time_slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.time_slider.setMinimum(0)
+        self.time_slider.setTickInterval(1)
+        self.time_slider.setSingleStep(1)
+        self.time_slider.valueChanged.connect(self.time_slider_moved)
+        self.current_date = QtGui.QLabel("1900-01-01")
+        self.current_time = QtGui.QComboBox()
+        self.current_time.currentIndexChanged.connect(self.current_time_changed)
+
+        # Range Slider
         self.range = TimeSlider(QtCore.Qt.Horizontal)
-        epoch = dt.utcfromtimestamp(0)
-        now = int((dt.now() - epoch).total_seconds())
-        self.range_min = QtGui.QLabel("01:01")
-        self.range_max = QtGui.QLabel("01:01")
-        self.range_start = QtGui.QLabel("01:01")
-        self.range_end = QtGui.QLabel("01:01")
-        # might also use valueChanged
-        self.range.sliderMoved.connect(self.range_update)
+        self.range_start = QtGui.QComboBox()
+        self.range_end = QtGui.QComboBox()
+        self.range.signal_range_moved.connect(self.range_update)
+        self.range_start.currentIndexChanged.connect(self.range_changed)
+        self.range_end.currentIndexChanged.connect(self.range_changed)
 
+        # Speed Slider
         self.speed = QtGui.QSlider(QtCore.Qt.Horizontal)
         self.speed.setMinimum(0)
         self.speed.setMaximum(1000)
         self.speed.setTickInterval(10)
         self.speed.setSingleStep(10)
         self.speed.valueChanged.connect(self.speed_changed)
-        self.dateLabel = QtGui.QLabel("Date")
-        self.date = QtGui.QLabel("1900-01-01")
-        self.timeLabel = QtGui.QLabel("Time")
-        self.sliderLabel = QtGui.QLabel("00:00")
+
+        # layout
         self.createMediaButtons()
         self.hline0 = QtGui.QFrame()
         self.hline0.setFrameShape(QtGui.QFrame.HLine)
@@ -360,20 +369,28 @@ class MediaBox(DockBox):
         self.hline1.setFrameShape(QtGui.QFrame.HLine)
         self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
 
-        self.layout.addWidget(self.hline0, 0, 0, 1, 7)
-        self.layout.addWidget(self.dateLabel, 1, 0, 1, 7)
-        self.layout.addWidget(self.date, 1, 4, 1, 3)
-        self.layout.addWidget(self.timeLabel, 2, 0, 1, 7)
-        self.layout.addWidget(self.sliderLabel, 2, 4, 1, 3)
-        self.layout.addWidget(self.playPauseButton, 3, 0)
-        self.layout.addWidget(self.fwdButton, 3, 2)
-        self.layout.addWidget(self.rewButton, 3, 1)
-        self.layout.addWidget(self.data, 3, 3, 1, 4)
-        self.layout.addWidget(self.range_start, 4, 0, 1, 1)
-        self.layout.addWidget(self.range, 4, 1, 1, 5)
-        self.layout.addWidget(self.range_end, 4, 6, 1, 1)
-        self.layout.addWidget(self.speed, 5, 0, 1, 7)
-        self.layout.addWidget(self.hline1, 6, 0, 1, 7)
+        self.layout.addWidget(self.hline0, 0, 0, 1, 5)
+        self.layout.addWidget(QtGui.QLabel("Date"), 1, 0, 1, 1)
+        self.layout.addWidget(self.current_date, 1, 1, 1, 2)
+        self.layout.addWidget(self.playPauseButton, 2, 1)
+        self.layout.addWidget(self.rewButton, 2, 2)
+        self.layout.addWidget(self.fwdButton, 2, 3)
+
+        self.layout.addWidget(QtGui.QLabel("Start Time"), 3, 1, 1, 1)
+        self.layout.addWidget(QtGui.QLabel("Current Time"), 3, 2, 1, 1)
+        self.layout.addWidget(QtGui.QLabel("Stop Time"), 3, 3, 1, 1)
+
+        self.layout.addWidget(self.range_start, 4, 1, 1, 1)
+        self.layout.addWidget(self.current_time, 4, 2, 1, 1)
+        self.layout.addWidget(self.range_end, 4, 3, 1, 1)
+
+        self.layout.addWidget(QtGui.QLabel("Time"), 5, 0, 1, 1)
+        self.layout.addWidget(self.time_slider, 5, 1, 1, 4)
+        self.layout.addWidget(QtGui.QLabel("Range"), 6, 0, 1, 1)
+        self.layout.addWidget(self.range, 6, 1, 1, 4)
+        self.layout.addWidget(QtGui.QLabel("Speed"), 7, 0, 1, 1)
+        self.layout.addWidget(self.speed, 7, 1, 1, 4)
+        self.layout.addWidget(self.hline1, 8, 0, 1, 5)
 
         self.props.props_changed.connect(self.update_props)
 
@@ -405,22 +422,22 @@ class MediaBox(DockBox):
     def speed_changed(self, position):
         self.signal_speed_changed.emit()
 
-    def update_slider(self, position):
-        self.props.actualFrame = position - 1
-        self.signal_slider_changed.emit()
+    def time_slider_moved(self, position):
+        self.props.actualFrame = position
+        self.current_time.setCurrentIndex(position)
+        self.signal_time_slider_changed.emit(position)
 
     def seekforward(self):
-        #if self.data.value() == self.data.maximum():
-        if self.data.value() >= self.range.high():
-            self.data.setValue(self.range.low())
+        if self.time_slider.value() >= self.range.high():
+            self.time_slider.setValue(self.range.low())
         else:
-            self.data.setValue(self.data.value() + 1)
+            self.time_slider.setValue(self.time_slider.value() + 1)
 
     def seekbackward(self):
-        if self.data.value() <= self.range.low():
-            self.data.setValue(self.range.high())
+        if self.time_slider.value() <= self.range.low():
+            self.time_slider.setValue(self.range.high())
         else:
-            self.data.setValue(self.data.value() - 1)
+            self.time_slider.setValue(self.time_slider.value() - 1)
 
     def playpause(self):
         if self.playPauseButton.toolTip() == 'Play':
@@ -434,19 +451,38 @@ class MediaBox(DockBox):
         self.signal_playpause_changed.emit()
 
     def update_props(self):
-        self.data.setMaximum(self.props.frames)
-        self.data.setValue(1)
-        self.range.setMinimum(1)
+        self.range_start.clear()
+        self.range_start.addItems(
+            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.range_end.clear()
+        self.range_end.addItems(
+            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.current_time.clear()
+        self.current_time.addItems(
+            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.time_slider.setMaximum(self.props.frames)
+        self.time_slider.setValue(0)
+        self.current_date.setText(self.props.cube[0]['datetime'].strftime("%Y-%M-%d"))
+        self.range.setMinimum(0)
         self.range.setMaximum(self.props.frames)
-        self.range.setLow(1)
+        self.range.setLow(0)
         self.range.setHigh(self.props.frames)
-        self.range_update()
+        self.range_update(self.range.low(), self.range.high())
 
-    def range_update(self):
-        self.range_start.setText(self.props.cube[self.range.low() - 1]
-                                 ['datetime'].strftime("%H:%M"))
-        self.range_end.setText(self.props.cube[self.range.high() - 1]
-                               ['datetime'].strftime("%H:%M"))
+    def range_update(self, low, high):
+        self.range_start.setCurrentIndex(low)
+        self.range_end.setCurrentIndex(high)
+
+    def range_changed(self):
+        self.range.setLow(self.range_start.currentIndex())
+        self.range.setHigh(self.range_end.currentIndex())
+
+    def current_time_changed(self, value):
+        self.time_slider.blockSignals(True)
+        self.time_slider.setValue(value)
+        self.time_slider.blockSignals(False)
+        self.props.actualFrame = value
+        self.signal_time_slider_changed.emit(value)
 
 
 # Properties
@@ -454,7 +490,7 @@ class Properties(QtCore.QObject):
     """
     Object for storing parameters
     """
-    signal_props_changed = QtCore.pyqtSignal(name='props_changed')
+    signal_props_changed = QtCore.pyqtSignal(int, name='props_changed')
 
     def __init__(self, parent=None):
         super(Properties, self).__init__(parent)
@@ -465,11 +501,11 @@ class Properties(QtCore.QObject):
     def set_datadir(self):
         f = QtGui.QFileDialog.getExistingDirectory(self.parent,
                                                    "Select a Folder",
-                                                   "/automount/data/radar/dwd",
+                                                   "/automount/time_slider/radar/dwd",
                                                    QtGui.QFileDialog.ShowDirsOnly)
 
         if os.path.isdir(f):
-            conf["dirs"]["data"] = str(f)
+            conf["dirs"]["time_slider"] = str(f)
             try:
                 _ , meta = utils.read_dx(glob.glob(os.path.join(self.dir, "raa0*"))[0])
             except ValueError:
@@ -496,19 +532,22 @@ class Properties(QtCore.QObject):
         self.parent.iwidget.set_clim(self.clim)
         self.loc = conf.get("source", "loc")
         self.filelist = glob.glob(os.path.join(self.dir, "raa0*{0}*".format(self.loc)))
-        self.frames = len(self.filelist)
+        self.frames = len(self.filelist) - 1
         self.actualFrame = 0
         self.cube = self.create_data_cube()
-        self.signal_props_changed.emit()
+        self.signal_props_changed.emit(0)
 
     def create_data_cube(self):
         '''
-            First attempt to create some data layer
+            First attempt to create some time_slider layer
 
             Here we just add the metadata dictionaries
         '''
         cube = []
         for name in self.filelist:
-            _, meta = utils.read_radolan(name)
+            if self.product == 'DX':
+                _, meta = utils.read_dx(name)
+            else:
+                _, meta = utils.read_radolan(name)
             cube.append(meta)
         return cube
