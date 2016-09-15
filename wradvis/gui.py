@@ -6,6 +6,7 @@
 #!/usr/bin/env python
 
 from PyQt4 import QtGui, QtCore
+import vispy
 
 # other wradvis imports
 from wradvis.glcanvas import RadolanWidget
@@ -19,6 +20,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
+
+        print(vispy.sys_info())
 
         self.resize(825, 500)
         self.setWindowTitle('RADOLAN Viewer')
@@ -63,14 +66,14 @@ class MainWindow(QtGui.QMainWindow):
 
     def connect_signals(self):
         self.mediabox.signal_playpause_changed.connect(self.start_stop)
-        self.mediabox.signal_slider_changed.connect(self.slider_changed)
+        self.mediabox.signal_time_slider_changed.connect(self.slider_changed)
         self.mediabox.signal_speed_changed.connect(self.speed)
         self.props.signal_props_changed.connect(self.slider_changed)
 
     def createActions(self):
-        # Set data directory
-        self.setDataDir = QtGui.QAction("&Set data directory", self,
-                                        statusTip='Set data directory',
+        # Set  directory
+        self.setDataDir = QtGui.QAction("&Set  directory", self,
+                                        statusTip='Set  directory',
                                         triggered=self.props.set_datadir)
         # Open project (configuration)
         self.openConf = QtGui.QAction("&Open project", self,
@@ -117,10 +120,10 @@ class MainWindow(QtGui.QMainWindow):
         self.toolsMenu.addAction(dock.toggleViewAction())
 
     def reload(self):
-        if self.mediabox.data.value() == self.mediabox.data.maximum():
-            self.mediabox.data.setValue(1)
+        if self.mediabox.time_slider.value() >= self.mediabox.range.high():
+            self.mediabox.time_slider.setValue(self.mediabox.range.low())
         else:
-            self.mediabox.data.setValue(self.mediabox.data.value() + 1)
+            self.mediabox.time_slider.setValue(self.mediabox.time_slider.value() + 1)
 
     def start_stop(self):
         if self.timer.isActive():
@@ -131,26 +134,23 @@ class MainWindow(QtGui.QMainWindow):
     def speed(self):
         self.timer.setInterval(self.mediabox.speed.value())
 
-    def slider_changed(self):
+    def slider_changed(self, pos):
         try:
             # Todo: switching happens here,
             # but we should just use a common reading function, where the
-            # underlying wradlib function is exchanged on switching data
+            # underlying wradlib function is exchanged on switching
             # format
             if self.props.product == 'DX':
-                self.data, self.meta = utils.read_dx(
-                    self.props.filelist[self.props.actualFrame])
+                self.data, _ = utils.read_dx(
+                    self.props.filelist[pos])
 
             else:
-                self.data, self.meta = utils.read_radolan(self.props.filelist[self.props.actualFrame])
+                self.data, _ = utils.read_radolan(self.props.filelist[pos])
                 if self.props.product == 'RX':
                     self.data = (self.data / 2) - 32.5
         except IndexError:
             print("Could not read any data.")
         else:
-            scantime = self.meta['datetime']
-            self.mediabox.sliderLabel.setText(scantime.strftime("%H:%M"))
-            self.mediabox.date.setText(scantime.strftime("%Y-%m-%d"))
             self.iwidget.set_data(self.data)
 
     def keyPressEvent(self, event):

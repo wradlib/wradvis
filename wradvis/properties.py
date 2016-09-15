@@ -10,12 +10,224 @@
 
 import os
 import glob
+from datetime import datetime as dt
 
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtGui import QLabel, QFontMetrics, QPainter
 
 from wradvis import utils
 from wradvis.config import conf
+
+
+class TimeSlider(QtGui.QSlider):
+    """
+        This software is OSI Certified Open Source Software.
+        OSI Certified is a certification mark of the Open Source Initiative.
+
+        Copyright (c) 2006, Enthought, Inc.
+        All rights reserved.
+
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+
+         * Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+         * Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+         * Neither the name of Enthought, Inc. nor the names of its contributors may
+           be used to endorse or promote products derived from this software without
+           specific prior written permission.
+
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+        ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+        A slider for ranges.
+        This class provides a dual-slider for ranges, where there is a defined
+        maximum and minimum, as is a normal slider, but instead of having a
+        single slider value, there are 2 slider values.
+        This class emits the same signals as the QSlider base class, with the
+        exception of valueChanged
+    """
+
+    signal_range_moved = QtCore.pyqtSignal(int, int, name='rangeMoved')
+
+    def __init__(self, *args):
+        super(TimeSlider, self).__init__(*args)
+
+        self._low = self.minimum()
+        self._high = self.maximum()
+
+        self.pressed_control = QtGui.QStyle.SC_None
+        self.hover_control = QtGui.QStyle.SC_None
+        self.click_offset = 0
+
+        # 0 for the low, 1 for the high, -1 for both
+        self.active_slider = 0
+
+    def low(self):
+        return self._low
+
+    def setLow(self, low):
+        self._low = low
+        self.update()
+
+    def high(self):
+        return self._high
+
+    def setHigh(self, high):
+        self._high = high
+        self.update()
+
+
+    def paintEvent(self, event):
+        # based on
+        # http://qt.gitorious.org/qt/qt/blobs/master/src/gui/widgets/qslider.cpp
+
+        painter = QtGui.QPainter(self)
+        style = QtGui.QApplication.style()
+
+        for i, value in enumerate([self._low, self._high]):
+            opt = QtGui.QStyleOptionSlider()
+            self.initStyleOption(opt)
+
+            # Only draw the groove for the first slider so it doesn't get drawn
+            # on top of the existing ones every time
+            if i == 0:
+                opt.subControls = QtGui.QStyle.SC_SliderGroove | QtGui.QStyle.SC_SliderHandle
+            else:
+                opt.subControls = QtGui.QStyle.SC_SliderHandle
+
+            print(self.tickPosition(), self.NoTicks)
+            if self.tickPosition() != self.NoTicks:
+                opt.subControls |= QtGui.QStyle.SC_SliderTickmarks
+
+            if self.pressed_control:
+                opt.activeSubControls = self.pressed_control
+                opt.state |= QtGui.QStyle.State_Sunken
+            else:
+                opt.activeSubControls = self.hover_control
+
+            opt.sliderPosition = value
+            opt.sliderValue = value
+            style.drawComplexControl(QtGui.QStyle.CC_Slider, opt, painter, self)
+
+
+    def mousePressEvent(self, event):
+        event.accept()
+
+        style = QtGui.QApplication.style()
+        button = event.button()
+
+        # In a normal slider control, when the user clicks on a point in the
+        # slider's total range, but not on the slider part of the control the
+        # control would jump the slider value to where the user clicked.
+        # For this control, clicks which are not direct hits will slide both
+        # slider parts
+
+        if button:
+            opt = QtGui.QStyleOptionSlider()
+            self.initStyleOption(opt)
+
+            self.active_slider = -1
+
+            for i, value in enumerate([self._low, self._high]):
+                opt.sliderPosition = value
+                hit = style.hitTestComplexControl(style.CC_Slider, opt, event.pos(), self)
+                if hit == style.SC_SliderHandle:
+                    self.active_slider = i
+                    self.pressed_control = hit
+
+                    self.triggerAction(self.SliderMove)
+                    self.setRepeatAction(self.SliderNoAction)
+                    self.setSliderDown(True)
+                    break
+
+            if self.active_slider < 0:
+                self.pressed_control = QtGui.QStyle.SC_SliderHandle
+                self.click_offset = self.__pixelPosToRangeValue(self.__pick(event.pos()))
+                self.triggerAction(self.SliderMove)
+                self.setRepeatAction(self.SliderNoAction)
+        else:
+            event.ignore()
+
+    def mouseMoveEvent(self, event):
+        if self.pressed_control != QtGui.QStyle.SC_SliderHandle:
+            event.ignore()
+            return
+
+        event.accept()
+        new_pos = self.__pixelPosToRangeValue(self.__pick(event.pos()))
+        opt = QtGui.QStyleOptionSlider()
+        self.initStyleOption(opt)
+
+        if self.active_slider < 0:
+            offset = new_pos - self.click_offset
+            self._high += offset
+            self._low += offset
+            if self._low < self.minimum():
+                diff = self.minimum() - self._low
+                self._low += diff
+                self._high += diff
+            if self._high > self.maximum():
+                diff = self.maximum() - self._high
+                self._low += diff
+                self._high += diff
+        elif self.active_slider == 0:
+            if new_pos >= self._high:
+                new_pos = self._high - 1
+            self._low = new_pos
+        else:
+            if new_pos <= self._low:
+                new_pos = self._low + 1
+            self._high = new_pos
+
+        self.click_offset = new_pos
+        self.update()
+        self.signal_range_moved.emit(self._low, self._high)
+
+        #self.click_offset = new_pos
+
+        #self.update()
+
+        #self.emit(QtCore.SIGNAL('sliderMoved(int)'), new_pos)
+
+    def __pick(self, pt):
+        if self.orientation() == QtCore.Qt.Horizontal:
+            return pt.x()
+        else:
+            return pt.y()
+
+
+    def __pixelPosToRangeValue(self, pos):
+        opt = QtGui.QStyleOptionSlider()
+        self.initStyleOption(opt)
+        style = QtGui.QApplication.style()
+
+        gr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderGroove, self)
+        sr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderHandle, self)
+
+        if self.orientation() == QtCore.Qt.Horizontal:
+            slider_length = sr.width()
+            slider_min = gr.x()
+            slider_max = gr.right() - slider_length + 1
+        else:
+            slider_length = sr.height()
+            slider_min = gr.y()
+            slider_max = gr.bottom() - slider_length + 1
+
+        return style.sliderValueFromPosition(self.minimum(), self.maximum(),
+                                             pos-slider_min, slider_max-slider_min,
+                                             opt.upsideDown)
+
 
 
 class LongLabel(QLabel):
@@ -68,8 +280,6 @@ class MouseBox(DockBox):
         self.parent.mwidget.rcanvas.mouse_moved.connect(self.mouse_moved)
 
     def mouse_moved(self, event):
-        print(event)
-
         # todo: check if originating from mpl and adapt self.r0 correctly
         point = self.parent.iwidget.canvas._mouse_position
         self.mousePointXY.setText(
@@ -99,10 +309,10 @@ class SourceBox(DockBox):
         self.hline = QtGui.QFrame()
         self.hline.setFrameShape(QtGui.QFrame.HLine)
         self.hline.setFrameShadow(QtGui.QFrame.Sunken)
-        self.dirname = "None" #conf["dirs"]["data"]
+        self.dirname = "None" #conf["dirs"]["time_slider"]
         self.dirLabel = LongLabel(self.dirname)
 
-        self.layout.addWidget(LongLabel("Current data directory"), 0, 0, 1, 7)
+        self.layout.addWidget(LongLabel("Current time_slider directory"), 0, 0, 1, 7)
         self.layout.addWidget(self.dirLabel, 1, 0, 1, 7)
         self.dirLabel.setFixedWidth(200)
         palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.darkGreen)
@@ -118,27 +328,39 @@ class SourceBox(DockBox):
 class MediaBox(DockBox):
 
     signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
-    signal_slider_changed = QtCore.pyqtSignal(name='slidervalueChanged')
+    signal_time_slider_changed = QtCore.pyqtSignal(int, name='dataslidervalueChanged')
     signal_speed_changed = QtCore.pyqtSignal(name='speedChanged')
 
     def __init__(self, parent=None):
         super(MediaBox, self).__init__(parent)
-        # Media Control
-        self.data = QtGui.QSlider(QtCore.Qt.Horizontal)
-        self.data.setMinimum(1)
-        self.data.setTickInterval(1)
-        self.data.setSingleStep(1)
-        self.data.valueChanged.connect(self.update_slider)
+
+        # Time Slider
+        self.time_slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.time_slider.setMinimum(0)
+        self.time_slider.setTickInterval(1)
+        self.time_slider.setSingleStep(1)
+        self.time_slider.valueChanged.connect(self.time_slider_moved)
+        self.current_date = QtGui.QLabel("1900-01-01")
+        self.current_time = QtGui.QComboBox()
+        self.current_time.currentIndexChanged.connect(self.current_time_changed)
+
+        # Range Slider
+        self.range = TimeSlider(QtCore.Qt.Horizontal)
+        self.range_start = QtGui.QComboBox()
+        self.range_end = QtGui.QComboBox()
+        self.range.signal_range_moved.connect(self.range_update)
+        self.range_start.currentIndexChanged.connect(self.range_changed)
+        self.range_end.currentIndexChanged.connect(self.range_changed)
+
+        # Speed Slider
         self.speed = QtGui.QSlider(QtCore.Qt.Horizontal)
         self.speed.setMinimum(0)
         self.speed.setMaximum(1000)
         self.speed.setTickInterval(10)
         self.speed.setSingleStep(10)
         self.speed.valueChanged.connect(self.speed_changed)
-        self.dateLabel = QtGui.QLabel("Date")
-        self.date = QtGui.QLabel("1900-01-01")
-        self.timeLabel = QtGui.QLabel("Time")
-        self.sliderLabel = QtGui.QLabel("00:00")
+
+        # layout
         self.createMediaButtons()
         self.hline0 = QtGui.QFrame()
         self.hline0.setFrameShape(QtGui.QFrame.HLine)
@@ -147,17 +369,28 @@ class MediaBox(DockBox):
         self.hline1.setFrameShape(QtGui.QFrame.HLine)
         self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
 
-        self.layout.addWidget(self.hline0, 0, 0, 1, 7)
-        self.layout.addWidget(self.dateLabel, 1, 0, 1, 7)
-        self.layout.addWidget(self.date, 1, 4, 1, 3)
-        self.layout.addWidget(self.timeLabel, 2, 0, 1, 7)
-        self.layout.addWidget(self.sliderLabel, 2, 4, 1, 3)
-        self.layout.addWidget(self.playPauseButton, 3, 0)
-        self.layout.addWidget(self.fwdButton, 3, 2)
-        self.layout.addWidget(self.rewButton, 3, 1)
-        self.layout.addWidget(self.data, 3, 3, 1, 4)
-        self.layout.addWidget(self.speed, 4, 0, 1, 7)
-        self.layout.addWidget(self.hline1, 5, 0, 1, 7)
+        self.layout.addWidget(self.hline0, 0, 0, 1, 5)
+        self.layout.addWidget(QtGui.QLabel("Date"), 1, 0, 1, 1)
+        self.layout.addWidget(self.current_date, 1, 1, 1, 2)
+        self.layout.addWidget(self.playPauseButton, 2, 1)
+        self.layout.addWidget(self.rewButton, 2, 2)
+        self.layout.addWidget(self.fwdButton, 2, 3)
+
+        self.layout.addWidget(QtGui.QLabel("Start Time"), 3, 1, 1, 1)
+        self.layout.addWidget(QtGui.QLabel("Current Time"), 3, 2, 1, 1)
+        self.layout.addWidget(QtGui.QLabel("Stop Time"), 3, 3, 1, 1)
+
+        self.layout.addWidget(self.range_start, 4, 1, 1, 1)
+        self.layout.addWidget(self.current_time, 4, 2, 1, 1)
+        self.layout.addWidget(self.range_end, 4, 3, 1, 1)
+
+        self.layout.addWidget(QtGui.QLabel("Time"), 5, 0, 1, 1)
+        self.layout.addWidget(self.time_slider, 5, 1, 1, 4)
+        self.layout.addWidget(QtGui.QLabel("Range"), 6, 0, 1, 1)
+        self.layout.addWidget(self.range, 6, 1, 1, 4)
+        self.layout.addWidget(QtGui.QLabel("Speed"), 7, 0, 1, 1)
+        self.layout.addWidget(self.speed, 7, 1, 1, 4)
+        self.layout.addWidget(self.hline1, 8, 0, 1, 5)
 
         self.props.props_changed.connect(self.update_props)
 
@@ -189,21 +422,22 @@ class MediaBox(DockBox):
     def speed_changed(self, position):
         self.signal_speed_changed.emit()
 
-    def update_slider(self, position):
-        self.props.actualFrame = position - 1
-        self.signal_slider_changed.emit()
+    def time_slider_moved(self, position):
+        self.props.actualFrame = position
+        self.current_time.setCurrentIndex(position)
+        self.signal_time_slider_changed.emit(position)
 
     def seekforward(self):
-        if self.data.value() == self.data.maximum():
-            self.data.setValue(1)
+        if self.time_slider.value() >= self.range.high():
+            self.time_slider.setValue(self.range.low())
         else:
-            self.data.setValue(self.data.value() + 1)
+            self.time_slider.setValue(self.time_slider.value() + 1)
 
     def seekbackward(self):
-        if self.data.value() == 1:
-            self.data.setValue(self.data.maximum())
+        if self.time_slider.value() <= self.range.low():
+            self.time_slider.setValue(self.range.high())
         else:
-            self.data.setValue(self.data.value() - 1)
+            self.time_slider.setValue(self.time_slider.value() - 1)
 
     def playpause(self):
         if self.playPauseButton.toolTip() == 'Play':
@@ -217,8 +451,38 @@ class MediaBox(DockBox):
         self.signal_playpause_changed.emit()
 
     def update_props(self):
-        self.data.setMaximum(self.props.frames)
-        self.data.setValue(1)
+        self.range_start.clear()
+        self.range_start.addItems(
+            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.range_end.clear()
+        self.range_end.addItems(
+            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.current_time.clear()
+        self.current_time.addItems(
+            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.time_slider.setMaximum(self.props.frames)
+        self.time_slider.setValue(0)
+        self.current_date.setText(self.props.cube[0]['datetime'].strftime("%Y-%M-%d"))
+        self.range.setMinimum(0)
+        self.range.setMaximum(self.props.frames)
+        self.range.setLow(0)
+        self.range.setHigh(self.props.frames)
+        self.range_update(self.range.low(), self.range.high())
+
+    def range_update(self, low, high):
+        self.range_start.setCurrentIndex(low)
+        self.range_end.setCurrentIndex(high)
+
+    def range_changed(self):
+        self.range.setLow(self.range_start.currentIndex())
+        self.range.setHigh(self.range_end.currentIndex())
+
+    def current_time_changed(self, value):
+        self.time_slider.blockSignals(True)
+        self.time_slider.setValue(value)
+        self.time_slider.blockSignals(False)
+        self.props.actualFrame = value
+        self.signal_time_slider_changed.emit(value)
 
 
 # Properties
@@ -226,21 +490,22 @@ class Properties(QtCore.QObject):
     """
     Object for storing parameters
     """
-    signal_props_changed = QtCore.pyqtSignal(name='props_changed')
+    signal_props_changed = QtCore.pyqtSignal(int, name='props_changed')
 
     def __init__(self, parent=None):
         super(Properties, self).__init__(parent)
 
         self.parent = parent
+        self.update_props()
 
     def set_datadir(self):
         f = QtGui.QFileDialog.getExistingDirectory(self.parent,
                                                    "Select a Folder",
-                                                   "/automount/data/radar/dwd",
+                                                   "/automount/time_slider/radar/dwd",
                                                    QtGui.QFileDialog.ShowDirsOnly)
 
         if os.path.isdir(f):
-            conf["dirs"]["data"] = str(f)
+            conf["dirs"]["time_slider"] = str(f)
             try:
                 _ , meta = utils.read_dx(glob.glob(os.path.join(self.dir, "raa0*"))[0])
             except ValueError:
@@ -267,6 +532,22 @@ class Properties(QtCore.QObject):
         self.parent.iwidget.set_clim(self.clim)
         self.loc = conf.get("source", "loc")
         self.filelist = glob.glob(os.path.join(self.dir, "raa0*{0}*".format(self.loc)))
-        self.frames = len(self.filelist)
+        self.frames = len(self.filelist) - 1
         self.actualFrame = 0
-        self.signal_props_changed.emit()
+        self.cube = self.create_data_cube()
+        self.signal_props_changed.emit(0)
+
+    def create_data_cube(self):
+        '''
+            First attempt to create some time_slider layer
+
+            Here we just add the metadata dictionaries
+        '''
+        cube = []
+        for name in self.filelist:
+            if self.product == 'DX':
+                _, meta = utils.read_dx(name)
+            else:
+                _, meta = utils.read_radolan(name)
+            cube.append(meta)
+        return cube
