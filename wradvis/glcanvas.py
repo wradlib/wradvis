@@ -481,8 +481,9 @@ class RadolanLineWidget(QtGui.QWidget):
         self.parent.parent.iwidget.canvas.mouse_pressed.connect(self.set_line)
 
     def set_line(self, event):
-        pos = event.pos
-        y = self.parent.props.mem.variables['data'][:, pos[0], pos[1]]
+        pos = self.parent.parent.iwidget.canvas._mouse_press_position
+        print("POS:", pos[0], pos[1])
+        y = self.parent.props.mem.variables['data'][:, int(pos[1]), int(pos[0])]
         x = np.arange(len(y))
         try:
             self.plot.parent = None
