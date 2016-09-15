@@ -357,7 +357,8 @@ def create_ncdf(filename, attrs, units='original'):
             unit = 'mm d-1'
 
     prod = id.createVariable('data', vtype, ('time', 'y', 'x',),
-                              fill_value=fillvalue, zlib=True, complevel=4)
+                             fill_value=fillvalue, zlib=True, complevel=4,
+                             chunksizes=(1, 32, 32))
     # accept data as unsigned byte without scaling, crucial for writing already packed data
     #prod.set_auto_maskandscale(False)
     prod.units = unit

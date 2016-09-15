@@ -17,6 +17,7 @@ from PyQt4.QtGui import QLabel, QFontMetrics, QPainter
 
 from wradvis import utils
 from wradvis.config import conf
+from wradvis.glcanvas import RadolanLineWidget
 
 
 class TimeSlider(QtGui.QSlider):
@@ -243,14 +244,27 @@ class LongLabel(QLabel):
 
 
 class DockBox(QtGui.QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)):
         super(DockBox, self).__init__(parent)
 
         self.layout = QtGui.QGridLayout()
         self.setLayout(self.layout)
-        self.setSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        self.setSizePolicy(size_pol[0], size_pol[1])
 
         self.props = parent.props
+
+
+class GraphBox(DockBox):
+    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)):
+        super(GraphBox, self).__init__(parent)
+
+        self.parent = parent
+        self.graph = RadolanLineWidget(self)
+        self.layout.addWidget(self.graph, 0, 0)
+        self.setSizePolicy(size_pol[0], size_pol[1])
+
+    def connect_signals(self):
+        self.graph.connect_signals()
 
 
 class MouseBox(DockBox):
@@ -264,6 +278,7 @@ class MouseBox(DockBox):
         self.mousePointLLLabel = QtGui.QLabel("LL", self)
         self.mousePointXY = QtGui.QLabel("", self)
         self.mousePointLL = QtGui.QLabel("", self)
+        self.mousePointS = QtGui.QLabel("", self)
         self.hline2 = QtGui.QFrame()
         self.hline2.setFrameShape(QtGui.QFrame.HLine)
         self.hline2.setFrameShadow(QtGui.QFrame.Sunken)
@@ -272,18 +287,25 @@ class MouseBox(DockBox):
         self.layout.addWidget(self.mousePointXY, 0, 2)
         self.layout.addWidget(self.mousePointLLLabel, 1, 1)
         self.layout.addWidget(self.mousePointLL, 1, 2)
-        self.layout.addWidget(self.hline2, 2, 0, 1, 3)
+        self.layout.addWidget(QtGui.QLabel("XYsel", self), 2, 1)
+        self.layout.addWidget(self.mousePointS, 2, 2)
+        self.layout.addWidget(self.hline2, 3, 0, 1, 3)
 
         # connect to signal
         self.parent.rwidget.rcanvas.mouse_moved.connect(self.mouse_moved)
+        self.parent.rwidget.rcanvas.mouse_pressed.connect(self.mouse_moved)
         self.parent.rwidget.pcanvas.mouse_moved.connect(self.mouse_moved)
         self.parent.mwidget.rcanvas.mouse_moved.connect(self.mouse_moved)
 
     def mouse_moved(self, event):
         # todo: check if originating from mpl and adapt self.r0 correctly
         point = self.parent.iwidget.canvas._mouse_position
+        point1 = self.parent.iwidget.canvas._mouse_press_position
         self.mousePointXY.setText(
             "({0:d}, {1:d})".format(int(point[0]), int(point[1])))
+
+        self.mousePointS.setText(
+            "({0:d}, {1:d})".format(int(point1[0]), int(point1[1])))
 
         # Todo: move this all to utils and use a generalized
         # ll-retrieving function
@@ -561,6 +583,7 @@ class Properties(QtCore.QObject):
         if self.mem is not None:
             self.mem.close()
         self.mem = self.create_nc_dataset()
+        print(self.mem.variables['data'].chunking())
         self.signal_props_changed.emit(0)
 
     def create_nc_dataset(self):

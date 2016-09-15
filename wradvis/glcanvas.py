@@ -13,11 +13,60 @@ from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
 from vispy.visuals.transforms import STTransform, MatrixTransform, PolarTransform
 from vispy.scene.cameras import PanZoomCamera
-from vispy.scene.visuals import Image, ColorBar, Markers, Text
+from vispy.scene.visuals import Image, ColorBar, Markers, Text, Line
+from vispy.scene.widgets import Label, AxisWidget
 from vispy.geometry import Rect
 
 from wradvis import utils
 from wradvis.config import conf
+
+
+class AxisCanvas(SceneCanvas):
+    def __init__(self, **kwargs):
+        super(AxisCanvas, self).__init__(keys='interactive', **kwargs)
+
+        self.size = 450, 200
+        self.unfreeze()
+        self.grid = self.central_widget.add_grid(margin=10)
+        self.grid.spacing = 0
+
+        self.pl_title = Label("Plot Title", color='white')
+        self.pl_title.height_max = 40
+        self.grid.add_widget(self.pl_title, row=0, col=0, col_span=3)
+
+        self.yaxis = AxisWidget(orientation='left')
+        self.yaxis.width_max = 40
+        self.grid.add_widget(self.yaxis, row=1, col=1)
+
+        self.ylabel = Label('Y Axis', rotation=-90, color='white')
+        self.ylabel.width_max = 40
+        self.grid.add_widget(self.ylabel, row=1, col=0)
+
+        self.xaxis = AxisWidget(orientation='bottom')
+        self.xaxis.height_max = 40
+        self.grid.add_widget(self.xaxis, row=2, col=2)
+
+        self.xlabel = Label('X Axis', color='white')
+        self.xlabel.height_max = 40
+        self.grid.add_widget(self.xlabel, row=3, col=0, col_span=3)
+
+        self.right_padding = self.grid.add_widget(row=0, col=3, row_span=3)
+        self.right_padding.width_max = 50
+
+        self.view = self.grid.add_view(row=1, col=2, border_color='white')
+        #data = np.random.normal(size=(24, 2))
+        #data[0] = -10, -10
+        #data[1] = 10, -10
+        #data[2] = 10, 10
+        #data[3] = -10, 10
+        #data[4] = -10, -10
+        #self.plot = Line(data, parent=view.scene)
+        self.view.camera = 'panzoom'
+
+        self.xaxis.link_view(self.view)
+        self.yaxis.link_view(self.view)
+
+        self.freeze()
 
 
 class ColorbarCanvas(SceneCanvas):
@@ -85,6 +134,7 @@ class RadolanCanvas(SceneCanvas):
 
         # add signal emitters
         self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
+        self.mouse_pressed = EventEmitter(source=self, type="mouse_pressed")
         self.key_pressed = EventEmitter(source=self, type="key_pressed")
 
         # block double clicks
@@ -128,6 +178,7 @@ class RadolanCanvas(SceneCanvas):
         self.view.camera = self.cam
 
         self._mouse_position = None
+        self._mouse_press_position = (0, 0)
         self.freeze()
         # print FPS to console, vispy SceneCanvas internal function
         self.measure_fps()
@@ -206,6 +257,10 @@ class RadolanCanvas(SceneCanvas):
                         self.selected.symbol = 'star'
 
         self.view.interactive = True
+
+        point = self.scene.node_transform(self.image).map(event.pos)[:2]
+        self._mouse_press_position = point
+        self.mouse_pressed(event)
 
     def on_key_press(self, event):
         self.key_pressed(event)
@@ -405,3 +460,32 @@ class RadolanWidget(QtGui.QWidget):
     def set_clim(self, clim):
         self.canvas.image.clim = clim
         self.cbar.cbar.clim = clim
+
+
+class RadolanLineWidget(QtGui.QWidget):
+    def __init__(self, parent=None):
+        super(RadolanLineWidget, self).__init__(parent)
+        self.parent = parent
+        self.canvas = AxisCanvas()
+        self.canvas.create_native()
+        self.canvas.native.setParent(self)
+        self.hbl = QtGui.QHBoxLayout()
+        self.hbl.addWidget(self.canvas.native)
+        self.setLayout(self.hbl)
+
+    def sizeHint(self):
+        return QtCore.QSize(650, 200)
+
+    def connect_signals(self):
+        print(self.parent.parent)
+        self.parent.parent.iwidget.canvas.mouse_pressed.connect(self.set_line)
+
+    def set_line(self, event):
+        pos = event.pos
+        y = self.parent.props.mem.variables['data'][:, pos[0], pos[1]]
+        x = np.arange(len(y))
+        try:
+            self.plot.parent = None
+        except:
+            pass
+        self.plot = Line(np.squeeze(np.dstack((x, y))), parent=self.canvas.view.scene)

@@ -11,7 +11,7 @@ import vispy
 # other wradvis imports
 from wradvis.glcanvas import RadolanWidget
 from wradvis.mplcanvas import MplWidget
-from wradvis.properties import Properties, MediaBox, SourceBox, MouseBox
+from wradvis.properties import Properties, MediaBox, SourceBox, MouseBox, GraphBox
 from wradvis import utils
 from wradvis.config import conf
 
@@ -67,6 +67,7 @@ class MainWindow(QtGui.QMainWindow):
         self.mediabox.signal_speed_changed.connect(self.speed)
         self.mediabox.connect_signals()
         self.rwidget.connect_signals()
+        self.graphbox.connect_signals()
 
     def createActions(self):
         # Set  directory
@@ -115,6 +116,13 @@ class MainWindow(QtGui.QMainWindow):
         self.mousebox = MouseBox(self)
         dock.setWidget(self.mousebox)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
+        self.toolsMenu.addAction(dock.toggleViewAction())
+
+        dock = QtGui.QDockWidget("Time Graphs", self)
+        dock.setAllowedAreas(QtCore.Qt.BottomDockWidgetArea)
+        self.graphbox = GraphBox(self, size_pol=(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.MinimumExpanding))
+        dock.setWidget(self.graphbox)
+        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, dock)
         self.toolsMenu.addAction(dock.toggleViewAction())
 
     def start_stop(self):
