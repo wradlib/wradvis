@@ -30,28 +30,28 @@ class AxisCanvas(SceneCanvas):
         self.grid = self.central_widget.add_grid(margin=10)
         self.grid.spacing = 0
 
-        self.pl_title = Label("Plot Title", color='white')
-        self.pl_title.height_max = 40
+        self.pl_title = Label("Time Graph", color='white')
+        self.pl_title.height_max = 25
         self.grid.add_widget(self.pl_title, row=0, col=0, col_span=3)
 
         self.yaxis = AxisWidget(orientation='left')
-        self.yaxis.width_max = 40
+        self.yaxis.width_max = 25
         self.grid.add_widget(self.yaxis, row=1, col=1)
 
-        self.ylabel = Label('Y Axis', rotation=-90, color='white')
-        self.ylabel.width_max = 40
+        self.ylabel = Label('Units', rotation=-90, color='white')
+        self.ylabel.width_max = 25
         self.grid.add_widget(self.ylabel, row=1, col=0)
 
         self.xaxis = AxisWidget(orientation='bottom')
-        self.xaxis.height_max = 40
+        self.xaxis.height_max = 25
         self.grid.add_widget(self.xaxis, row=2, col=2)
 
-        self.xlabel = Label('X Axis', color='white')
-        self.xlabel.height_max = 40
+        self.xlabel = Label('Time', color='white')
+        self.xlabel.height_max = 25
         self.grid.add_widget(self.xlabel, row=3, col=0, col_span=3)
 
         self.right_padding = self.grid.add_widget(row=0, col=3, row_span=3)
-        self.right_padding.width_max = 50
+        self.right_padding.width_max = 30
 
         self.view = self.grid.add_view(row=1, col=2, border_color='white')
         #data = np.random.normal(size=(24, 2))
@@ -61,7 +61,12 @@ class AxisCanvas(SceneCanvas):
         #data[3] = -10, 10
         #data[4] = -10, -10
         #self.plot = Line(data, parent=view.scene)
-        self.view.camera = 'panzoom'
+        self.cam = PanZoomCamera(name="PanZoom",
+                                 #rect=Rect(0, 0, 900, 900),
+                                 #aspect=1,
+                                 parent=self.view.scene)
+        self.view.camera = self.cam
+
 
         self.xaxis.link_view(self.view)
         self.yaxis.link_view(self.view)
@@ -482,7 +487,7 @@ class RadolanLineWidget(QtGui.QWidget):
 
     def set_line(self, event):
         pos = self.parent.parent.iwidget.canvas._mouse_press_position
-        print("POS:", pos[0], pos[1])
+        print("POS:", int(pos[0]), int(pos[1]))
         y = self.parent.props.mem.variables['data'][:, int(pos[1]), int(pos[0])]
         x = np.arange(len(y))
         try:
@@ -490,3 +495,7 @@ class RadolanLineWidget(QtGui.QWidget):
         except:
             pass
         self.plot = Line(np.squeeze(np.dstack((x, y))), parent=self.canvas.view.scene)
+        self.set_time_limits()
+
+    def set_time_limits(self):
+        self.canvas.cam.set_range(x=(0,23))
