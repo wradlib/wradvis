@@ -328,8 +328,8 @@ class SourceBox(DockBox):
 class MediaBox(DockBox):
 
     signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
-    #signal_time_slider_changed = QtCore.pyqtSignal(int, name='dataslidervalueChanged')
-    signal_speed_changed = QtCore.pyqtSignal(name='speedChanged')
+    signal_time_slider_changed = QtCore.pyqtSignal(int, name='timeChanged')
+    signal_speed_changed = QtCore.pyqtSignal(int, name='speedChanged')
 
     def __init__(self, parent=None):
         super(MediaBox, self).__init__(parent)
@@ -392,6 +392,8 @@ class MediaBox(DockBox):
         self.layout.addWidget(self.speed, 7, 1, 1, 4)
         self.layout.addWidget(self.hline1, 8, 0, 1, 5)
 
+
+    def connect_signals(self):
         self.props.props_changed.connect(self.update_props)
         self.props.parent.timer.timeout.connect(self.seekforward)
 
@@ -421,29 +423,20 @@ class MediaBox(DockBox):
         return button
 
     def speed_changed(self, position):
-        self.signal_speed_changed.emit()
+        self.signal_speed_changed.emit(position)
 
-    def time_slider_moved(self, position):
-        self.current_time.setCurrentIndex(position)
-        try:
-            # Todo: switching happens here,
-            # but we should just use a common reading function, where the
-            # underlying wradlib function is exchanged on switching
-            # format
-            if self.props.product == 'DX':
-                data, _ = utils.read_dx(
-                    self.props.filelist[position])
+    def time_slider_moved(self, pos):
+        self.current_time.setCurrentIndex(pos)
 
-            else:
-                data = self.props.mem.variables['data'][position][:]
-                # print(self.data.max())
-                # if self.props.product == 'RX':
-                # self.data = (self.data / 2) - 32.5
-        except IndexError:
-            print("Could not read any data.")
-        else:
-            self.props.parent.iwidget.set_data(data)
+        # check if data already read
+        if self.current_time.currentText() == '--':
+            self.props.add_data(pos)
+            time = utils.get_dt(self.props.mem.variables['time'][pos])
+            self.range_start.setItemText(pos, time.strftime("%H:%M"))
+            self.current_time.setItemText(pos, time.strftime("%H:%M"))
+            self.range_end.setItemText(pos, time.strftime("%H:%M"))
 
+        self.signal_time_slider_changed.emit(pos)
 
     def seekforward(self):
         if self.time_slider.value() >= self.range.high():
@@ -469,18 +462,26 @@ class MediaBox(DockBox):
         self.signal_playpause_changed.emit()
 
     def update_props(self):
+
+        stime = utils.get_dt(self.props.mem.variables['time'][0])
+        etime = utils.get_dt(self.props.mem.variables['time'][-1])
+        rtime = [str(item) for item in self.props.mem.variables['time'][1:-1]]
+
         self.range_start.clear()
-        self.range_start.addItems(
-            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.range_start.addItem(stime.strftime("%H:%M"))
+        self.range_start.addItems(rtime)
+        self.range_start.addItem(etime.strftime("%H:%M"))
         self.range_end.clear()
-        self.range_end.addItems(
-            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.range_end.addItem(stime.strftime("%H:%M"))
+        self.range_end.addItems(rtime)
+        self.range_end.addItem(etime.strftime("%H:%M"))
         self.current_time.clear()
-        self.current_time.addItems(
-            [item['datetime'].strftime("%H:%M") for item in self.props.cube])
+        self.current_time.addItem(stime.strftime("%H:%M"))
+        self.current_time.addItems(rtime)
+        self.current_time.addItem(etime.strftime("%H:%M"))
         self.time_slider.setMaximum(self.props.frames)
         self.time_slider.setValue(0)
-        self.current_date.setText(self.props.cube[0]['datetime'].strftime("%Y-%M-%d"))
+        self.current_date.setText(stime.strftime("%Y-%M-%d"))
         self.range.setMinimum(0)
         self.range.setMaximum(self.props.frames)
         self.range.setLow(0)
@@ -511,7 +512,7 @@ class Properties(QtCore.QObject):
 
         self.parent = parent
         self.mem = None
-        self.update_props()
+        #self.update_props()
 
     def set_datadir(self):
         f = QtGui.QFileDialog.getExistingDirectory(self.parent,
@@ -542,7 +543,16 @@ class Properties(QtCore.QObject):
     def update_props(self):
         self.dir = conf["dirs"]["data"]
         self.product = conf["source"]["product"]
+
+        # setting reader function according to data type
+        if self.product == 'DX':
+            self.rfunc = utils.read_dx
+        else:
+            self.rfunc = utils.read_radolan
+
+        # activate the correct canvas (grid or polar)
         self.parent.iwidget.set_canvas(self.product)
+
         self.clim = (conf.get("vis", "cmin"), conf.get("vis", "cmax"))
         self.parent.iwidget.set_clim(self.clim)
         self.loc = conf.get("source", "loc")
@@ -550,32 +560,25 @@ class Properties(QtCore.QObject):
         self.frames = len(self.filelist) - 1
         if self.mem is not None:
             self.mem.close()
-        self.cube, self.mem = self.create_data_cube()
+        self.mem = self.create_nc_dataset()
         self.signal_props_changed.emit(0)
 
-    def create_data_cube(self):
+    def create_nc_dataset(self):
         '''
             First attempt to create some time_slider layer
 
             Here we just add the metadata dictionaries
         '''
-        import tempfile
-        cube = []
         mem = None
+        data, meta = self.rfunc(self.filelist[0])
+        mem = utils.create_ncdf('tmpfile.nc', meta, units='normal')
+        utils.add_ncdf(mem, data, 0, meta)
+        data, meta = self.rfunc(self.filelist[-1])
+        utils.add_ncdf(mem, data, self.frames, meta)
 
-        for i, name in enumerate(self.filelist):
-            if self.product == 'DX':
-                _, meta = utils.read_dx(name)
-            else:
-                data, meta = utils.read_radolan(name)
-                if i == 0:
-                    mem = utils.create_ncdf('tmpfile.nc', meta, units='normal')
-                if mem is not None:
-                    utils.add_ncdf(mem, data, i, meta)
-            cube.append(meta)
-        if mem is not None:
-            mem.variables['data'].set_auto_maskandscale(True)
-        import netCDF4 as nc
-        #mem = nc.Dataset('tmpfile.nc', 'r', format='NETCDF4')
+        return mem
 
-        return cube, mem
+    def add_data(self, pos):
+        data, meta = self.rfunc(self.filelist[pos])
+        utils.add_ncdf(self.mem, data, pos, meta)
+

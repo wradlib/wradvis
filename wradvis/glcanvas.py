@@ -371,6 +371,9 @@ class RadolanWidget(QtGui.QWidget):
         self.hbl.addWidget(self.splitter)
         self.setLayout(self.hbl)
 
+    def connect_signals(self):
+        self.parent.mediabox.signal_time_slider_changed.connect(self.set_time)
+
     def set_canvas(self, type):
         if type == 'DX':
             self.canvas = self.pcanvas
@@ -380,6 +383,15 @@ class RadolanWidget(QtGui.QWidget):
             self.canvas = self.rcanvas
             self.swapper['R'].show()
             self.swapper['P'].hide()
+
+    def set_time(self, pos):
+        # now this sets same data to all images
+        # we would need to do the data loading
+        # via objects (maybe radar-object from above)
+        # and use
+        for im in self.canvas.images:
+            im.set_data(self.parent.props.mem.variables['data'][pos][:])
+        self.canvas.update()
 
     def set_data(self, data):
         # now this sets same data to all images

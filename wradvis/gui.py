@@ -60,10 +60,13 @@ class MainWindow(QtGui.QMainWindow):
 
         self.connect_signals()
 
+        self.props.update_props()
+
     def connect_signals(self):
         self.mediabox.signal_playpause_changed.connect(self.start_stop)
         self.mediabox.signal_speed_changed.connect(self.speed)
-        #self.props.signal_props_changed.connect(self.slider_changed)
+        self.mediabox.connect_signals()
+        self.rwidget.connect_signals()
 
     def createActions(self):
         # Set  directory
@@ -120,8 +123,8 @@ class MainWindow(QtGui.QMainWindow):
         else:
             self.timer.start()
 
-    def speed(self):
-        self.timer.setInterval(self.mediabox.speed.value())
+    def speed(self, value):
+        self.timer.setInterval(value)
 
     def keyPressEvent(self, event):
         if isinstance(event, QtGui.QKeyEvent):

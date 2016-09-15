@@ -63,12 +63,14 @@ def dx_to_wgs84(coords):
 def get_radolan_grid():
     return wrl.georef.get_radolan_grid()
 
+
 def get_radolan_origin():
     return wrl.georef.get_radolan_grid()[0, 0]
 
 
 def read_radolan(f, missing=-9999, loaddata=True):
     return read_RADOLAN_composite(f, missing=missing, loaddata=loaddata)
+
 
 def read_dx(f, missing=0, loaddata=True):
     return wrl.io.readDX(f)
@@ -357,7 +359,7 @@ def create_ncdf(filename, attrs, units='original'):
     prod = id.createVariable('data', vtype, ('time', 'y', 'x',),
                               fill_value=fillvalue, zlib=True, complevel=4)
     # accept data as unsigned byte without scaling, crucial for writing already packed data
-    prod.set_auto_maskandscale(False)
+    #prod.set_auto_maskandscale(False)
     prod.units = unit
     prod.standard_name = standard_name
     prod.long_name = long_name
@@ -428,7 +430,9 @@ def add_ncdf(id, data, time_index, attrs):
     #    data.flat[attrs['secondary']] = id.variables[
     #        attrs['producttype'].lower()].missing_value
 
+    id.variables['data'].set_auto_maskandscale(False)
     id.variables['data'][time_index, :, :] = data
+    id.variables['data'].set_auto_maskandscale(True)
     print(attrs['datetime'])
     delta = attrs['datetime'] - dt.datetime.utcfromtimestamp(0)
     id.variables['time'][time_index] = delta.total_seconds()
@@ -437,4 +441,5 @@ def add_ncdf(id, data, time_index, attrs):
     id.variables['radars'][time_index] = ','.join(attrs['radarlocations'])
 
 
-
+def get_dt(unix):
+    return dt.datetime.utcfromtimestamp(unix)
