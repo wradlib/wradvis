@@ -174,6 +174,26 @@ class RadolanCanvas(SceneCanvas):
         # create cities (Markers and Text Visuals
         self.create_cities()
 
+        # cursor lines
+        self.vline = Line(parent=self.view.scene, color="darkgrey")
+        self.vline.transform = STTransform(
+            translate=(0, 0, -2.5))
+        self.hline = Line(parent=self.view.scene, color="darkgrey")
+        self.hline.transform = STTransform(
+            translate=(0, 0, -2.5))
+        self.vline.visible = False
+        self.hline.visible = False
+
+        # pick lines
+        self.vpline = Line(parent=self.view.scene, color="red")
+        self.vpline.transform = STTransform(
+            translate=(0, 0, -5))
+        self.hpline = Line(parent=self.view.scene, color="red")
+        self.hpline.transform = STTransform(
+            translate=(0, 0, -5))
+        self.vpline.visible = False
+        self.hpline.visible = False
+
         # create PanZoomCamera
         self.cam = PanZoomCamera(name="PanZoom",
                                  rect=Rect(0, 0, 900, 900),
@@ -242,6 +262,7 @@ class RadolanCanvas(SceneCanvas):
     def on_mouse_move(self, event):
         point = self.scene.node_transform(self.image).map(event.pos)[:2]
         self._mouse_position = point
+        self.update_cursor()
         # emit signal
         self.mouse_moved(event)
 
@@ -265,10 +286,26 @@ class RadolanCanvas(SceneCanvas):
 
         point = self.scene.node_transform(self.image).map(event.pos)[:2]
         self._mouse_press_position = point
+        self.update_select_cursor()
         self.mouse_pressed(event)
 
     def on_key_press(self, event):
         self.key_pressed(event)
+
+    def update_cursor(self):
+        pos = self._mouse_position
+        # if self.hline.visible and self.vline.visible:
+        #     ll = utils.radolan_to_wgs84(pos + self.r0)
+        #     self.cursor_text.text = '({0:3.3f}, {1:3.3f})'.format(ll[0], ll[1])
+        #     self.cursor_text.pos = pos + (0, 0)
+        self.vline.set_data(np.array([[pos[0], 0], [pos[0], 899]]))
+        self.hline.set_data(np.array([[0, pos[1]], [899, pos[1]]]))
+
+    def update_select_cursor(self):
+        pos = self._mouse_press_position
+        self.vpline.set_data(np.array([[pos[0], 0], [pos[0], 899]]))
+        self.hpline.set_data(np.array([[0, pos[1]], [899, pos[1]]]))
+
 
 
 class PTransform(PolarTransform):
@@ -433,6 +470,7 @@ class RadolanWidget(QtGui.QWidget):
 
     def connect_signals(self):
         self.parent.mediabox.signal_time_slider_changed.connect(self.set_time)
+        self.parent.mousebox.signal_toggle_Cursor.connect(self.toggle_cursor)
 
     def set_canvas(self, type):
         if type == 'DX':
@@ -466,6 +504,14 @@ class RadolanWidget(QtGui.QWidget):
         self.canvas.image.clim = clim
         self.cbar.cbar.clim = clim
 
+    def toggle_cursor(self, state):
+        self.canvas.hline.visible = state
+        self.canvas.vline.visible = state
+        self.canvas.hpline.visible = state
+        self.canvas.vpline.visible = state
+        self.canvas.update()
+
+
 
 class RadolanLineWidget(QtGui.QWidget):
     def __init__(self, parent=None):
@@ -498,4 +544,4 @@ class RadolanLineWidget(QtGui.QWidget):
         self.set_time_limits()
 
     def set_time_limits(self):
-        self.canvas.cam.set_range(x=(0,23))
+        self.canvas.cam.set_range(margin=0.)# x=(0,23))

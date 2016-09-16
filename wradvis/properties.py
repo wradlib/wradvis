@@ -268,6 +268,9 @@ class GraphBox(DockBox):
 
 
 class MouseBox(DockBox):
+
+    signal_toggle_Cursor = QtCore.pyqtSignal(int, name='toggleCursor')
+
     def __init__(self, parent=None):
         super(MouseBox, self).__init__(parent)
 
@@ -279,6 +282,9 @@ class MouseBox(DockBox):
         self.mousePointXY = QtGui.QLabel("", self)
         self.mousePointLL = QtGui.QLabel("", self)
         self.mousePointS = QtGui.QLabel("", self)
+        self.curCheckBox = QtGui.QCheckBox()
+        self.curCheckBox.stateChanged.connect(self.signal_toggle_Cursor)
+
         self.hline2 = QtGui.QFrame()
         self.hline2.setFrameShape(QtGui.QFrame.HLine)
         self.hline2.setFrameShadow(QtGui.QFrame.Sunken)
@@ -289,7 +295,9 @@ class MouseBox(DockBox):
         self.layout.addWidget(self.mousePointLL, 1, 2)
         self.layout.addWidget(QtGui.QLabel("XYsel", self), 2, 1)
         self.layout.addWidget(self.mousePointS, 2, 2)
-        self.layout.addWidget(self.hline2, 3, 0, 1, 3)
+        self.layout.addWidget(QtGui.QLabel("Activate Cursor", self), 3, 0)
+        self.layout.addWidget(self.curCheckBox, 3, 1)
+        self.layout.addWidget(self.hline2, 4, 0, 1, 3)
 
         # connect to signal
         self.parent.rwidget.rcanvas.mouse_moved.connect(self.mouse_moved)
