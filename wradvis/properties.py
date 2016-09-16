@@ -360,6 +360,7 @@ class MediaBox(DockBox):
     signal_playpause_changed = QtCore.pyqtSignal(name='startstop')
     signal_time_slider_changed = QtCore.pyqtSignal(int, name='timeChanged')
     signal_speed_changed = QtCore.pyqtSignal(int, name='speedChanged')
+    signal_time_properties_changed = QtCore.pyqtSignal(name='timepropsChanged')
 
     def __init__(self, parent=None):
         super(MediaBox, self).__init__(parent)
@@ -525,9 +526,11 @@ class MediaBox(DockBox):
     def range_changed(self):
         self.range.setLow(self.range_start.currentIndex())
         self.range.setHigh(self.range_end.currentIndex())
+        self.signal_time_properties_changed.emit()
 
     def current_time_changed(self, value):
         self.time_slider.setValue(value)
+        self.signal_time_properties_changed.emit()
 
 
 # Properties

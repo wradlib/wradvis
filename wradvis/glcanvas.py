@@ -13,9 +13,10 @@ from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
 from vispy.visuals.transforms import STTransform, MatrixTransform, PolarTransform
 from vispy.scene.cameras import PanZoomCamera
-from vispy.scene.visuals import Image, ColorBar, Markers, Text, Line
+from vispy.scene.visuals import Image, ColorBar, Markers, Text, Line, InfiniteLine
 from vispy.scene.widgets import Label, AxisWidget
 from vispy.geometry import Rect
+from vispy.color import Color
 
 from wradvis import utils
 from wradvis.config import conf
@@ -65,6 +66,20 @@ class AxisCanvas(SceneCanvas):
                                  #rect=Rect(0, 0, 900, 900),
                                  #aspect=1,
                                  parent=self.view.scene)
+
+        # cursors
+        self.low_line = InfiniteLine(parent=self.view.scene, color=Color("blue").RGBA)
+        self.low_line.transform = STTransform(
+            translate=(0, 0, -2.5))
+        self.high_line = InfiniteLine(parent=self.view.scene, color=Color("blue").RGBA)
+        self.high_line.transform = STTransform(
+            translate=(0, 0, -2.5))
+        self.cur_line = InfiniteLine(parent=self.view.scene,
+                                      color=Color("red").RGBA)
+        self.cur_line.transform = STTransform(
+            translate=(0, 0, -2.5))
+
+
         self.view.camera = self.cam
 
 
@@ -512,7 +527,6 @@ class RadolanWidget(QtGui.QWidget):
         self.canvas.update()
 
 
-
 class RadolanLineWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(RadolanLineWidget, self).__init__(parent)
@@ -528,12 +542,11 @@ class RadolanLineWidget(QtGui.QWidget):
         return QtCore.QSize(650, 200)
 
     def connect_signals(self):
-        print(self.parent.parent)
         self.parent.parent.iwidget.canvas.mouse_pressed.connect(self.set_line)
+        self.parent.parent.mediabox.signal_time_properties_changed.connect(self.set_time_limits)
 
     def set_line(self, event):
         pos = self.parent.parent.iwidget.canvas._mouse_press_position
-        print("POS:", int(pos[0]), int(pos[1]))
         y = self.parent.props.mem.variables['data'][:, int(pos[1]), int(pos[0])]
         x = np.arange(len(y))
         try:
@@ -544,4 +557,11 @@ class RadolanLineWidget(QtGui.QWidget):
         self.set_time_limits()
 
     def set_time_limits(self):
-        self.canvas.cam.set_range(margin=0.)# x=(0,23))
+        low = self.parent.parent.mediabox.range.low()
+        high = self.parent.parent.mediabox.range.high()
+        cur = self.parent.parent.mediabox.time_slider.value()
+
+        self.canvas.low_line.set_data(low)
+        self.canvas.high_line.set_data(high)
+        self.canvas.cur_line.set_data(cur)
+        self.canvas.cam.set_range(margin=0.)
