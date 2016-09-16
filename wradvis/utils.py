@@ -382,6 +382,7 @@ def create_ncdf(filename, attrs, units='original'):
     if missing_value:
         prod.missing_value = missing_value
     prod.version = 'RADOLAN {0}'.format(version)
+    prod.source = prodtype
     prod.comment = 'NO COMMENT'
 
     id_str1 = id.createVariable('radars', 'S128', ('time',), zlib=True,

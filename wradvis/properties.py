@@ -500,7 +500,10 @@ class MediaBox(DockBox):
 
         stime = utils.get_dt(self.props.mem.variables['time'][0])
         etime = utils.get_dt(self.props.mem.variables['time'][-1])
-        rtime = [str(item) for item in self.props.mem.variables['time'][1:-1]]
+        try:
+            rtime = [utils.get_dt(item).strftime("%H:%M") for item in self.props.mem.variables['time'][1:-1]]
+        except ValueError:
+            rtime = [str(item) for item in self.props.mem.variables['time'][1:-1]]
 
         self.range_start.clear()
         self.range_start.addItem(stime.strftime("%H:%M"))
@@ -581,11 +584,13 @@ class Properties(QtCore.QObject):
         self.update_props()
 
     def load_data(self):
-        newfile = QtGui.QFileDialog.getSaveFileName(self.parent,
+        newfile = QtGui.QFileDialog.getOpenFileName(self.parent,
                                                     'Save NetCDF File', '',
                                                     'netCDF (*.nc)')
         self.mem = utils.open_ncdf(newfile)
-        #conf["source"]["product"] = self.mem.[]
+        conf["source"]["product"] = self.mem.variables['data'].source
+        self.signal_props_changed.emit(0)
+
 
     def save_data(self):
         newfile = QtGui.QFileDialog.getSaveFileName(self.parent, 'Save NetCDF File', '', 'netCDF (*.nc)')
@@ -593,7 +598,6 @@ class Properties(QtCore.QObject):
         self.mem.close()
         os.rename(oldfile, newfile)
         self.mem = utils.open_ncdf(newfile)
-
 
     def update_props(self):
         self.dir = conf["dirs"]["data"]
