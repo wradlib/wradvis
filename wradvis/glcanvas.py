@@ -66,6 +66,10 @@ class AxisCanvas(SceneCanvas):
                                  #rect=Rect(0, 0, 900, 900),
                                  #aspect=1,
                                  parent=self.view.scene)
+        # data line
+        self.plot = Line(parent=self.view.scene)
+        self.plot.transform = STTransform(
+            translate=(0, 0, -2.5))
 
         # cursors
         self.low_line = InfiniteLine(parent=self.view.scene, color=Color("blue").RGBA)
@@ -86,7 +90,16 @@ class AxisCanvas(SceneCanvas):
         self.xaxis.link_view(self.view)
         self.yaxis.link_view(self.view)
 
+        self._mouse_position = None
+        self.mouse_double_clicked = EventEmitter(source=self, type="mouse_double_clicked")
+
         self.freeze()
+
+    def on_mouse_double_click(self, event):
+        point = self.scene.node_transform(self.plot).map(event.pos)[:2]
+        self._mouse_position = point
+        # emit signal
+        self.mouse_double_clicked(event)
 
 
 class ColorbarCanvas(SceneCanvas):
@@ -528,6 +541,9 @@ class RadolanWidget(QtGui.QWidget):
 
 
 class RadolanLineWidget(QtGui.QWidget):
+
+    #signal_mouse_double_clicked = QtCore.pyqtSignal(int, name='mouseDblClicked')
+
     def __init__(self, parent=None):
         super(RadolanLineWidget, self).__init__(parent)
         self.parent = parent
@@ -544,6 +560,7 @@ class RadolanLineWidget(QtGui.QWidget):
     def connect_signals(self):
         self.parent.parent.iwidget.canvas.mouse_pressed.connect(self.set_line)
         self.parent.parent.mediabox.signal_time_properties_changed.connect(self.set_time_limits)
+        #self.canvas.mouse_double_clicked(self.mouse_double_clicked)
 
     def set_line(self, event):
         pos = self.parent.parent.iwidget.canvas._mouse_press_position
@@ -554,6 +571,8 @@ class RadolanLineWidget(QtGui.QWidget):
         except:
             pass
         self.plot = Line(np.squeeze(np.dstack((x, y))), parent=self.canvas.view.scene)
+        self.plot.transform = STTransform(
+            translate=(0, 0, -2.5))
         self.set_time_limits()
 
     def set_time_limits(self):
@@ -565,3 +584,7 @@ class RadolanLineWidget(QtGui.QWidget):
         self.canvas.high_line.set_data(high)
         self.canvas.cur_line.set_data(cur)
         self.canvas.cam.set_range(margin=0.)
+
+    #def mouse_double_clicked(self):
+    #    self.signal_mouse_double_clicked.emit(self.canvas._mouse_position)
+

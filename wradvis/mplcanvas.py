@@ -101,7 +101,7 @@ class MplCanvas(FigureCanvas):
     def on_move(self, event):
         if event.inaxes:
             ax = event.inaxes  # the axes instance
-            print('data coords %f %f' % (event.xdata, event.ydata))
+            #print('data coords %f %f' % (event.xdata, event.ydata))
             self._mouse_position = np.array([event.xdata, event.ydata])
             self.mouse_moved.emit(event)
 

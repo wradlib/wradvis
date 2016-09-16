@@ -107,7 +107,6 @@ class TimeSlider(QtGui.QSlider):
             else:
                 opt.subControls = QtGui.QStyle.SC_SliderHandle
 
-            print(self.tickPosition(), self.NoTicks)
             if self.tickPosition() != self.NoTicks:
                 opt.subControls |= QtGui.QStyle.SC_SliderTickmarks
 
@@ -365,6 +364,8 @@ class MediaBox(DockBox):
     def __init__(self, parent=None):
         super(MediaBox, self).__init__(parent)
 
+        self.parent = parent
+
         # Time Slider
         self.time_slider = QtGui.QSlider(QtCore.Qt.Horizontal)
         self.time_slider.setMinimum(0)
@@ -425,8 +426,11 @@ class MediaBox(DockBox):
 
 
     def connect_signals(self):
+        # Todo: this seems not the correct way of doing this, needs fixing
+        # there must be a nicer method, than traversing over objects
         self.props.props_changed.connect(self.update_props)
         self.props.parent.timer.timeout.connect(self.seekforward)
+        self.parent.graphbox.graph.canvas.mouse_double_clicked.connect(self.current_time_changed)
 
     def createMediaButtons(self):
         iconSize = QtCore.QSize(18, 18)
@@ -529,8 +533,12 @@ class MediaBox(DockBox):
         self.signal_time_properties_changed.emit()
 
     def current_time_changed(self, value):
-        self.time_slider.setValue(value)
+        try:
+            self.time_slider.setValue(value)
+        except TypeError:
+            self.time_slider.setValue(round(self.parent.graphbox.graph.canvas._mouse_position[0]))
         self.signal_time_properties_changed.emit()
+
 
 
 # Properties
@@ -594,7 +602,6 @@ class Properties(QtCore.QObject):
         if self.mem is not None:
             self.mem.close()
         self.mem = self.create_nc_dataset()
-        print(self.mem.variables['data'].chunking())
         self.signal_props_changed.emit(0)
 
     def create_nc_dataset(self):
