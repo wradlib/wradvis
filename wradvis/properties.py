@@ -540,7 +540,6 @@ class MediaBox(DockBox):
         self.signal_time_properties_changed.emit()
 
 
-
 # Properties
 class Properties(QtCore.QObject):
     """
@@ -581,6 +580,21 @@ class Properties(QtCore.QObject):
             conf.read_file(f)
         self.update_props()
 
+    def load_data(self):
+        newfile = QtGui.QFileDialog.getSaveFileName(self.parent,
+                                                    'Save NetCDF File', '',
+                                                    'netCDF (*.nc)')
+        self.mem = utils.open_ncdf(newfile)
+        #conf["source"]["product"] = self.mem.[]
+
+    def save_data(self):
+        newfile = QtGui.QFileDialog.getSaveFileName(self.parent, 'Save NetCDF File', '', 'netCDF (*.nc)')
+        oldfile = os.path.abspath(self.mem.filepath())
+        self.mem.close()
+        os.rename(oldfile, newfile)
+        self.mem = utils.open_ncdf(newfile)
+
+
     def update_props(self):
         self.dir = conf["dirs"]["data"]
         self.product = conf["source"]["product"]
@@ -602,6 +616,8 @@ class Properties(QtCore.QObject):
         if self.mem is not None:
             self.mem.close()
         self.mem = self.create_nc_dataset()
+        #self.mem.filepath()
+        #print(dir(self.mem))#.disk_format)
         self.signal_props_changed.emit(0)
 
     def create_nc_dataset(self):

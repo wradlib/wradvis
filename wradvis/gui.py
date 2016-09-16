@@ -86,11 +86,25 @@ class MainWindow(QtGui.QMainWindow):
                                       statusTip='Save project',
                                       triggered=self.props.save_conf)
 
+        # Load netcdf (data file)
+        self.loadNC = QtGui.QAction("&Load NetCDF", self,
+                                    shortcut="Ctrl+L",
+                                    statusTip='Load netCDF data file',
+                                    triggered=self.props.load_data)
+
+        # Save netcdf (data file)
+        self.saveNC = QtGui.QAction("Save &NetCDF", self,
+                                      shortcut="Ctrl+N",
+                                      statusTip='Save data file as netCDF',
+                                      triggered=self.props.save_data)
+
     def createMenus(self):
         self.fileMenu = self.menuBar().addMenu("&File")
         self.fileMenu.addAction(self.setDataDir)
         self.fileMenu.addAction(self.openConf)
         self.fileMenu.addAction(self.saveConf)
+        self.fileMenu.addAction(self.loadNC)
+        self.fileMenu.addAction(self.saveNC)
 
         self.toolsMenu = self.menuBar().addMenu('&Tools')
 

@@ -204,6 +204,11 @@ def read_RADOLAN_composite(fname, missing=-9999, loaddata=True):
 
     return arr, attrs
 
+
+def open_ncdf(filename):
+    return nc.Dataset(filename, 'r', format='NETCDF4')
+
+
 def create_ncdf(filename, attrs, units='original'):
 
     nx = attrs['ncol']
