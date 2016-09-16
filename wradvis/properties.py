@@ -229,7 +229,6 @@ class TimeSlider(QtGui.QSlider):
                                              opt.upsideDown)
 
 
-
 class LongLabel(QLabel):
     def paintEvent( self, event ):
         painter = QPainter(self)
@@ -243,7 +242,8 @@ class LongLabel(QLabel):
 
 
 class DockBox(QtGui.QWidget):
-    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)):
+    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed,
+                                              QtGui.QSizePolicy.Fixed)):
         super(DockBox, self).__init__(parent)
 
         self.layout = QtGui.QGridLayout()
@@ -254,7 +254,8 @@ class DockBox(QtGui.QWidget):
 
 
 class GraphBox(DockBox):
-    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)):
+    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed,
+                                              QtGui.QSizePolicy.Fixed)):
         super(GraphBox, self).__init__(parent)
 
         self.parent = parent
@@ -341,7 +342,7 @@ class SourceBox(DockBox):
         self.dirname = "None" #conf["dirs"]["time_slider"]
         self.dirLabel = LongLabel(self.dirname)
 
-        self.layout.addWidget(LongLabel("Current time_slider directory"), 0, 0, 1, 7)
+        self.layout.addWidget(LongLabel("Current data directory"), 0, 0, 1, 7)
         self.layout.addWidget(self.dirLabel, 1, 0, 1, 7)
         self.dirLabel.setFixedWidth(200)
         palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.darkGreen)
@@ -595,7 +596,10 @@ class Properties(QtCore.QObject):
 
 
     def save_data(self):
-        newfile = QtGui.QFileDialog.getSaveFileName(self.parent, 'Save NetCDF File', '', 'netCDF (*.nc)')
+        newfile = QtGui.QFileDialog.getSaveFileName(self.parent,
+                                                    'Save NetCDF File',
+                                                    '',
+                                                    'netCDF (*.nc)')
         oldfile = os.path.abspath(self.mem.filepath())
         self.mem.close()
         os.rename(oldfile, newfile)

@@ -22,14 +22,53 @@ from wradvis import utils
 from wradvis.config import conf
 
 
-class AxisCanvas(SceneCanvas):
-    def __init__(self, **kwargs):
-        super(AxisCanvas, self).__init__(keys='interactive', **kwargs)
+class GlCanvas(SceneCanvas):
+    def __init__(self, vrow=0, vcol=0, **kwargs):
+        super(GlCanvas, self).__init__(**kwargs)
 
-        self.size = 450, 200
         self.unfreeze()
         self.grid = self.central_widget.add_grid(margin=10)
         self.grid.spacing = 0
+        self.view = self.grid.add_view(row=vrow, col=vcol,
+                                       border_color='white')
+
+        self.transitem = None
+
+        self._mouse_position = None
+        self._mouse_press_position = (0, 0)
+
+        self.mouse_double_clicked = EventEmitter(source=self,
+                                                 type="mouse_double_clicked")
+        self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
+        self.mouse_pressed = EventEmitter(source=self, type="mouse_pressed")
+        self.key_pressed = EventEmitter(source=self, type="key_pressed")
+
+        self.freeze()
+
+    def on_mouse_double_click(self, event):
+        point = self.scene.node_transform(self.transitem).map(event.pos)[:2]
+        self._mouse_position = point
+        # emit signal
+        self.mouse_double_clicked(event)
+
+    def on_key_press(self, event):
+        self.key_pressed(event)
+
+    def on_mouse_move(self, event):
+        point = self.scene.node_transform(self.transitem).map(event.pos)[:2]
+        self._mouse_position = point
+
+    def on_mouse_press(self, event):
+        point = self.scene.node_transform(self.transitem).map(event.pos)[:2]
+        self._mouse_press_position = point
+
+
+class AxisCanvas(GlCanvas):
+    def __init__(self, **kwargs):
+        super(AxisCanvas, self).__init__(**kwargs)
+
+        self.size = 450, 200
+        self.unfreeze()
 
         self.pl_title = Label("Time Graph", color='white')
         self.pl_title.height_max = 25
@@ -54,14 +93,6 @@ class AxisCanvas(SceneCanvas):
         self.right_padding = self.grid.add_widget(row=0, col=3, row_span=3)
         self.right_padding.width_max = 30
 
-        self.view = self.grid.add_view(row=1, col=2, border_color='white')
-        #data = np.random.normal(size=(24, 2))
-        #data[0] = -10, -10
-        #data[1] = 10, -10
-        #data[2] = 10, 10
-        #data[3] = -10, 10
-        #data[4] = -10, -10
-        #self.plot = Line(data, parent=view.scene)
         self.cam = PanZoomCamera(name="PanZoom",
                                  #rect=Rect(0, 0, 900, 900),
                                  #aspect=1,
@@ -70,6 +101,8 @@ class AxisCanvas(SceneCanvas):
         self.plot = Line(parent=self.view.scene)
         self.plot.transform = STTransform(
             translate=(0, 0, -2.5))
+
+        self.transitem = self.plot
 
         # cursors
         self.low_line = InfiniteLine(parent=self.view.scene, color=Color("blue").RGBA)
@@ -90,20 +123,10 @@ class AxisCanvas(SceneCanvas):
         self.xaxis.link_view(self.view)
         self.yaxis.link_view(self.view)
 
-        self._mouse_position = None
-        self.mouse_double_clicked = EventEmitter(source=self, type="mouse_double_clicked")
-
         self.freeze()
 
-    def on_mouse_double_click(self, event):
-        point = self.scene.node_transform(self.plot).map(event.pos)[:2]
-        self._mouse_position = point
-        # emit signal
-        self.mouse_double_clicked(event)
 
-
-class ColorbarCanvas(SceneCanvas):
-
+class ColorbarCanvas(GlCanvas):
     def __init__(self, **kwargs):
         super(ColorbarCanvas, self).__init__(keys='interactive', **kwargs)
 
@@ -112,12 +135,8 @@ class ColorbarCanvas(SceneCanvas):
 
         # unfreeze needed to add more elements
         self.unfreeze()
+        self.events.mouse_move.block()
 
-        # add grid central widget
-        self.grid = self.central_widget.add_grid()
-
-        # add view to grid
-        self.view = self.grid.add_view(row=0, col=0)
         self.view.border_color = (0.5, 0.5, 0.5, 1)
 
         # initialize colormap, we take cubehelix for now
@@ -147,8 +166,7 @@ class ColorbarCanvas(SceneCanvas):
         self.freeze()
 
 
-class RadolanCanvas(SceneCanvas):
-
+class RadolanCanvas(GlCanvas):
     def __init__(self, **kwargs):
         super(RadolanCanvas, self).__init__(keys='interactive', **kwargs)
 
@@ -157,18 +175,6 @@ class RadolanCanvas(SceneCanvas):
 
         # unfreeze needed to add more elements
         self.unfreeze()
-
-        # add grid central widget
-        self.grid = self.central_widget.add_grid()
-
-        # add view to grid
-        self.view = self.grid.add_view(row=0, col=0)
-        self.view.border_color = (0.5, 0.5, 0.5, 1)
-
-        # add signal emitters
-        self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
-        self.mouse_pressed = EventEmitter(source=self, type="mouse_pressed")
-        self.key_pressed = EventEmitter(source=self, type="key_pressed")
 
         # block double clicks
         self.events.mouse_double_click.block()
@@ -190,6 +196,8 @@ class RadolanCanvas(SceneCanvas):
                            clim=(0,50),
                            parent=self.view.scene)
 
+        self.transitem = self.image
+
         self.images.append(self.image)
 
         # add transform to Image
@@ -203,20 +211,26 @@ class RadolanCanvas(SceneCanvas):
         self.create_cities()
 
         # cursor lines
-        self.vline = Line(parent=self.view.scene, color="darkgrey")
+        self.vline = InfiniteLine(parent=self.view.scene,
+                                  color=Color("blue").RGBA)
         self.vline.transform = STTransform(
-            translate=(0, 0, -2.5))
-        self.hline = Line(parent=self.view.scene, color="darkgrey")
+            translate=(0, 0, -10))
+        self.hline = InfiniteLine(parent=self.view.scene,
+                                  color=Color("blue").RGBA,
+                                  vertical=False)
         self.hline.transform = STTransform(
-            translate=(0, 0, -2.5))
+            translate=(0, 0, -10))
         self.vline.visible = False
         self.hline.visible = False
 
         # pick lines
-        self.vpline = Line(parent=self.view.scene, color="red")
+        self.vpline = InfiniteLine(parent=self.view.scene,
+                                   color=Color("red").RGBA)
         self.vpline.transform = STTransform(
             translate=(0, 0, -5))
-        self.hpline = Line(parent=self.view.scene, color="red")
+        self.hpline = InfiniteLine(parent=self.view.scene,
+                                   color=Color("red").RGBA,
+                                   vertical=False)
         self.hpline.transform = STTransform(
             translate=(0, 0, -5))
         self.vpline.visible = False
@@ -230,8 +244,6 @@ class RadolanCanvas(SceneCanvas):
 
         self.view.camera = self.cam
 
-        self._mouse_position = None
-        self._mouse_press_position = (0, 0)
         self.freeze()
         # print FPS to console, vispy SceneCanvas internal function
         self.measure_fps()
@@ -288,13 +300,13 @@ class RadolanCanvas(SceneCanvas):
             i += 1
 
     def on_mouse_move(self, event):
-        point = self.scene.node_transform(self.image).map(event.pos)[:2]
-        self._mouse_position = point
+        super(RadolanCanvas, self).on_mouse_move(event)
         self.update_cursor()
         # emit signal
         self.mouse_moved(event)
 
     def on_mouse_press(self, event):
+        super(RadolanCanvas, self).on_mouse_press(event)
         self.view.interactive = False
 
         for v in self.visuals_at(event.pos, radius=30):
@@ -312,8 +324,6 @@ class RadolanCanvas(SceneCanvas):
 
         self.view.interactive = True
 
-        point = self.scene.node_transform(self.image).map(event.pos)[:2]
-        self._mouse_press_position = point
         self.update_select_cursor()
         self.mouse_pressed(event)
 
@@ -322,18 +332,15 @@ class RadolanCanvas(SceneCanvas):
 
     def update_cursor(self):
         pos = self._mouse_position
-        # if self.hline.visible and self.vline.visible:
-        #     ll = utils.radolan_to_wgs84(pos + self.r0)
-        #     self.cursor_text.text = '({0:3.3f}, {1:3.3f})'.format(ll[0], ll[1])
-        #     self.cursor_text.pos = pos + (0, 0)
-        self.vline.set_data(np.array([[pos[0], 0], [pos[0], 899]]))
-        self.hline.set_data(np.array([[0, pos[1]], [899, pos[1]]]))
+        self.vline.set_data(pos=pos[0])
+        self.hline.set_data(pos=pos[1])
+        # needed to work, set_data doesn't update by itself
+        self.update()
 
     def update_select_cursor(self):
         pos = self._mouse_press_position
-        self.vpline.set_data(np.array([[pos[0], 0], [pos[0], 899]]))
-        self.hpline.set_data(np.array([[0, pos[1]], [899, pos[1]]]))
-
+        self.vpline.set_data(pos[0])
+        self.hpline.set_data(pos[1])
 
 
 class PTransform(PolarTransform):
@@ -547,7 +554,7 @@ class RadolanLineWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(RadolanLineWidget, self).__init__(parent)
         self.parent = parent
-        self.canvas = AxisCanvas()
+        self.canvas = AxisCanvas(vrow=1, vcol=2)
         self.canvas.create_native()
         self.canvas.native.setParent(self)
         self.hbl = QtGui.QHBoxLayout()

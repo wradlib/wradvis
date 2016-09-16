@@ -11,7 +11,8 @@ import vispy
 # other wradvis imports
 from wradvis.glcanvas import RadolanWidget
 from wradvis.mplcanvas import MplWidget
-from wradvis.properties import Properties, MediaBox, SourceBox, MouseBox, GraphBox
+from wradvis.properties import Properties, MediaBox, SourceBox, \
+    MouseBox, GraphBox
 from wradvis import utils
 from wradvis.config import conf
 
@@ -134,7 +135,9 @@ class MainWindow(QtGui.QMainWindow):
 
         dock = QtGui.QDockWidget("Time Graphs", self)
         dock.setAllowedAreas(QtCore.Qt.BottomDockWidgetArea)
-        self.graphbox = GraphBox(self, size_pol=(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.MinimumExpanding))
+        size_pol = (QtGui.QSizePolicy.MinimumExpanding,
+                    QtGui.QSizePolicy.MinimumExpanding)
+        self.graphbox = GraphBox(self, size_pol=size_pol)
         dock.setWidget(self.graphbox)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, dock)
         self.toolsMenu.addAction(dock.toggleViewAction())
