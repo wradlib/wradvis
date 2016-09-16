@@ -517,13 +517,13 @@ class MediaBox(DockBox):
         self.current_time.addItem(stime.strftime("%H:%M"))
         self.current_time.addItems(rtime)
         self.current_time.addItem(etime.strftime("%H:%M"))
-        self.time_slider.setMaximum(self.props.frames)
+        self.time_slider.setMaximum(len(rtime) + 1)
         self.time_slider.setValue(0)
         self.current_date.setText(stime.strftime("%Y-%M-%d"))
         self.range.setMinimum(0)
-        self.range.setMaximum(self.props.frames)
+        self.range.setMaximum(len(rtime) + 1)
         self.range.setLow(0)
-        self.range.setHigh(self.props.frames)
+        self.range.setHigh(len(rtime) + 1)
         self.range_update(self.range.low(), self.range.high())
 
     def range_update(self, low, high):
@@ -587,6 +587,8 @@ class Properties(QtCore.QObject):
         newfile = QtGui.QFileDialog.getOpenFileName(self.parent,
                                                     'Save NetCDF File', '',
                                                     'netCDF (*.nc)')
+        if self.mem is not None:
+            self.mem.close()
         self.mem = utils.open_ncdf(newfile)
         conf["source"]["product"] = self.mem.variables['data'].source
         self.signal_props_changed.emit(0)
