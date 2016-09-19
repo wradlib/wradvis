@@ -5,6 +5,7 @@
 # -----------------------------------------------------------------------------
 #!/usr/bin/env python
 
+import sys
 from PyQt4 import QtGui, QtCore
 import vispy
 
@@ -166,11 +167,13 @@ class MainWindow(QtGui.QMainWindow):
             self.swapper[1].hide()
 
 
-def start(arg):
-    appQt = QtGui.QApplication(arg.argv)
+def start(args=None):
+    if args is None:
+        args = sys.argv[1:]
+    appQt = QtGui.QApplication(args)
     win = MainWindow()
     win.show()
     appQt.exec_()
 
 if __name__ == '__main__':
-    print('wradview: Calling module <gui> as main...')
+    start()
