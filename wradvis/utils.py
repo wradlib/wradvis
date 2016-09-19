@@ -305,8 +305,8 @@ def create_ncdf(filename, attrs, units='original'):
 
     product = attrs['producttype']
     if product not in ['DX']:
-        nx = attrs['ncol']
-        ny = attrs['nrow']
+        nx = attrs['nrow']
+        ny = attrs['ncol']
         version = attrs['radolanversion']
     else:
         nx = attrs['clutter'].shape[0]

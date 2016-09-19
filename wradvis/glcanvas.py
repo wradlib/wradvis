@@ -71,6 +71,7 @@ class GlCanvas(SceneCanvas):
         self._mouse_press_position = point
         self._cursor_press_position = cursor
         self.update_select_cursor()
+        self.mouse_pressed(event)
 
     def add_cursor(self):
         # cursor lines
@@ -145,6 +146,8 @@ class AxisCanvas(GlCanvas):
 
         self.right_padding = self.grid.add_widget(row=0, col=3, row_span=3)
         self.right_padding.width_max = 30
+
+        self.add_cursor()
 
         self.cam = PanZoomCamera(name="PanZoom",
                                  #rect=Rect(0, 0, 900, 900),
@@ -453,9 +456,6 @@ class DXCanvas(GlCanvas):
         self.freeze()
         self.measure_fps()
 
-    def on_key_press(self, event):
-        self.key_pressed(event)
-
     def add_image(self, radar):
         # this adds an image to the images list
         image = PolarImage(source=radar,
@@ -565,13 +565,18 @@ class RadolanLineWidget(QtGui.QWidget):
         return QtCore.QSize(650, 200)
 
     def connect_signals(self):
-        self.parent.parent.iwidget.canvas.mouse_pressed.connect(self.set_line)
+        self.parent.parent.iwidget.rcanvas.mouse_pressed.connect(self.set_line)
+        self.parent.parent.iwidget.pcanvas.mouse_pressed.connect(self.set_line)
         self.parent.parent.mediabox.signal_time_properties_changed.connect(self.set_time_limits)
         #self.canvas.mouse_double_clicked(self.mouse_double_clicked)
 
     def set_line(self, event):
         pos = self.parent.parent.iwidget.canvas._mouse_press_position
-        y = self.parent.props.mem.variables['data'][:, int(pos[1]), int(pos[0])]
+
+        if self.parent.props.mem.variables['data'].source in ['DX']:
+            y = self.parent.props.mem.variables['data'][:, int(pos[0]), int(pos[1])]
+        else:
+            y = self.parent.props.mem.variables['data'][:, int(pos[1]), int(pos[0])]
         x = np.arange(len(y))
         try:
             self.plot.parent = None
