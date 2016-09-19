@@ -33,9 +33,12 @@ class GlCanvas(SceneCanvas):
                                        border_color='white')
 
         self.transitem = None
+        self.cursor = None
 
         self._mouse_position = None
         self._mouse_press_position = (0, 0)
+        self._cursor_position = None
+        self._cursor_press_position = (0, 0)
 
         self.mouse_double_clicked = EventEmitter(source=self,
                                                  type="mouse_double_clicked")
@@ -56,11 +59,61 @@ class GlCanvas(SceneCanvas):
 
     def on_mouse_move(self, event):
         point = self.scene.node_transform(self.transitem).map(event.pos)[:2]
+        cursor = self.scene.node_transform(self.cursor).map(event.pos)[:2]
         self._mouse_position = point
+        self._cursor_position = cursor
+        self.update_cursor()
+        self.mouse_moved(event)
 
     def on_mouse_press(self, event):
         point = self.scene.node_transform(self.transitem).map(event.pos)[:2]
+        cursor = self.scene.node_transform(self.cursor).map(event.pos)[:2]
         self._mouse_press_position = point
+        self._cursor_press_position = cursor
+        self.update_select_cursor()
+
+    def add_cursor(self):
+        # cursor lines
+        self.vline = InfiniteLine(parent=self.view.scene,
+                                  color=Color("blue").RGBA)
+        self.vline.transform = STTransform(
+            translate=(0, 0, -10))
+        self.hline = InfiniteLine(parent=self.view.scene,
+                                  color=Color("blue").RGBA,
+                                  vertical=False)
+        self.hline.transform = STTransform(
+            translate=(0, 0, -10))
+        self.vline.visible = False
+        self.hline.visible = False
+
+        self.cursor = self.hline
+
+        # pick lines
+        self.vpline = InfiniteLine(parent=self.view.scene,
+                                   color=Color("red").RGBA)
+        self.vpline.transform = STTransform(
+            translate=(0, 0, -5))
+        self.hpline = InfiniteLine(parent=self.view.scene,
+                                   color=Color("red").RGBA,
+                                   vertical=False)
+        self.hpline.transform = STTransform(
+            translate=(0, 0, -5))
+        self.vpline.visible = False
+        self.hpline.visible = False
+
+    def update_cursor(self):
+        pos = self._cursor_position
+        self.vline.set_data(pos=pos[0])
+        self.hline.set_data(pos=pos[1])
+        # needed to work, set_data doesn't update by itself
+        self.update()
+
+    def update_select_cursor(self):
+        pos = self._cursor_press_position
+        self.vpline.set_data(pos[0])
+        self.hpline.set_data(pos[1])
+        self.update()
+
 
 
 class AxisCanvas(GlCanvas):
@@ -116,9 +169,7 @@ class AxisCanvas(GlCanvas):
         self.cur_line.transform = STTransform(
             translate=(0, 0, -2.5))
 
-
         self.view.camera = self.cam
-
 
         self.xaxis.link_view(self.view)
         self.yaxis.link_view(self.view)
@@ -135,7 +186,10 @@ class ColorbarCanvas(GlCanvas):
 
         # unfreeze needed to add more elements
         self.unfreeze()
+
         self.events.mouse_move.block()
+        self.events.mouse_press.block()
+        self.events.mouse_double_click.block()
 
         self.view.border_color = (0.5, 0.5, 0.5, 1)
 
@@ -211,30 +265,7 @@ class RadolanCanvas(GlCanvas):
         self.create_cities()
 
         # cursor lines
-        self.vline = InfiniteLine(parent=self.view.scene,
-                                  color=Color("blue").RGBA)
-        self.vline.transform = STTransform(
-            translate=(0, 0, -10))
-        self.hline = InfiniteLine(parent=self.view.scene,
-                                  color=Color("blue").RGBA,
-                                  vertical=False)
-        self.hline.transform = STTransform(
-            translate=(0, 0, -10))
-        self.vline.visible = False
-        self.hline.visible = False
-
-        # pick lines
-        self.vpline = InfiniteLine(parent=self.view.scene,
-                                   color=Color("red").RGBA)
-        self.vpline.transform = STTransform(
-            translate=(0, 0, -5))
-        self.hpline = InfiniteLine(parent=self.view.scene,
-                                   color=Color("red").RGBA,
-                                   vertical=False)
-        self.hpline.transform = STTransform(
-            translate=(0, 0, -5))
-        self.vpline.visible = False
-        self.hpline.visible = False
+        self.add_cursor()
 
         # create PanZoomCamera
         self.cam = PanZoomCamera(name="PanZoom",
@@ -299,14 +330,9 @@ class RadolanCanvas(GlCanvas):
             self.text.append(t)
             i += 1
 
-    def on_mouse_move(self, event):
-        super(RadolanCanvas, self).on_mouse_move(event)
-        self.update_cursor()
-        # emit signal
-        self.mouse_moved(event)
-
     def on_mouse_press(self, event):
         super(RadolanCanvas, self).on_mouse_press(event)
+
         self.view.interactive = False
 
         for v in self.visuals_at(event.pos, radius=30):
@@ -324,24 +350,6 @@ class RadolanCanvas(GlCanvas):
 
         self.view.interactive = True
 
-        self.update_select_cursor()
-        self.mouse_pressed(event)
-
-    def on_key_press(self, event):
-        self.key_pressed(event)
-
-    def update_cursor(self):
-        pos = self._mouse_position
-        self.vline.set_data(pos=pos[0])
-        self.hline.set_data(pos=pos[1])
-        # needed to work, set_data doesn't update by itself
-        self.update()
-
-    def update_select_cursor(self):
-        pos = self._mouse_press_position
-        self.vpline.set_data(pos[0])
-        self.hpline.set_data(pos[1])
-
 
 class PTransform(PolarTransform):
     glsl_imap = """
@@ -352,6 +360,16 @@ class PTransform(PolarTransform):
             return vec4(r, theta, pos.z, 1);
         }
         """
+
+    def imap(self, coords):
+        coords = np.array(coords)
+        ret = np.empty(coords.shape, coords.dtype)
+        ret[..., 0] = np.rad2deg(np.arctan2(coords[..., 0],
+                                            coords[..., 1]) + np.pi)
+        ret[..., 1] = (coords[..., 0] ** 2 + coords[..., 1] ** 2) ** 0.5
+        for i in range(2, coords.shape[-1]):
+            ret[..., i] = coords[..., i]
+        return ret
 
 
 class PolarImage(Image):
@@ -388,19 +406,12 @@ class PolarImage(Image):
         self.freeze()
 
 
-class DXCanvas(SceneCanvas):
+class DXCanvas(GlCanvas):
     def __init__(self, **kwargs):
         super(DXCanvas, self).__init__(keys='interactive', **kwargs)
 
         self.size = 450, 450
         self.unfreeze()
-
-        # add grid central widget
-        self.grid = self.central_widget.add_grid()
-
-        # add view to grid
-        self.view = self.grid.add_view(row=0, col=0)
-        self.view.border_color = (0.5, 0.5, 0.5, 1)
 
         # This is hardcoded now, but maybe handled as the data source changes
         self.img_data = np.zeros((360, 128))
@@ -420,11 +431,12 @@ class DXCanvas(SceneCanvas):
                                 clim=(-32.5, 95),
                                 parent=self.view.scene)
 
+        self.transitem = self.image
+
         self.images.append(self.image)
 
-        # add signal emitters
-        self.mouse_moved = EventEmitter(source=self, type="mouse_moved")
-        self.key_pressed = EventEmitter(source=self, type="key_pressed")
+        # cursor lines
+        self.add_cursor()
 
         # block double clicks
         self.events.mouse_double_click.block()
@@ -438,20 +450,8 @@ class DXCanvas(SceneCanvas):
 
         self.view.camera = self.cam
 
-        self._mouse_position = None
-
         self.freeze()
         self.measure_fps()
-
-    def on_mouse_move(self, event):
-        tr = self.scene.node_transform(self.image)
-        point = tr.map(event.pos)[:2]
-        # todo: we should actually move this into PTransform in the future
-        point[0] += np.pi
-        point[0] = np.rad2deg(point[0])
-        self._mouse_position = point
-        # emit signal
-        self.mouse_moved(event)
 
     def on_key_press(self, event):
         self.key_pressed(event)

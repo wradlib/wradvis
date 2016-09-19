@@ -12,6 +12,7 @@ import wradlib as wrl
 import numpy as np
 import netCDF4 as nc
 import datetime as dt
+import pytz
 from wradvis.config import conf
 
 
@@ -209,16 +210,114 @@ def open_ncdf(filename):
     return nc.Dataset(filename, 'r', format='NETCDF4')
 
 
+def get_netcdf_varattrs(attrs, units='original'):
+    product = attrs['producttype']
+    precision = attrs.get('precision', 1)
+    if product in ['DX', 'RX', 'EX']:
+        if units == 'original':
+            scale_factor = None
+            add_offset = None
+            unit = 'RVP6'
+        else:
+            scale_factor = np.float32(0.5)
+            add_offset = np.float32(-32.5)
+            unit = 'dBZ'
+
+        valid_min = np.int32(0)
+        valid_max = np.int32(255)
+        missing_value = np.int32(255)
+        fillvalue = np.int32(255)
+        vtype = 'u1'
+        standard_name = 'equivalent_reflectivity_factor'
+        long_name = 'equivalent_reflectivity_factor'
+
+    elif product in ['RY', 'RZ', 'EY', 'EZ']:
+        if units == 'original':
+            scale_factor = None
+            add_offset = None
+            unit = '0.01mm 5min-1'
+        elif units == 'normal':
+            scale_factor = np.float32(precision * 3600 / int)
+            add_offset = np.float(0)
+            unit = 'mm h-1'
+        else:
+            scale_factor = np.float32(precision / (int * 1000))
+            add_offset = np.float(0)
+            unit = 'm s-1'
+
+        valid_min = np.int32(0)
+        valid_max = np.int32(4095)
+        missing_value = np.int32(4096)
+        fillvalue = np.int32(65535)
+        vtype = 'u2'
+        standard_name = 'rainfall_amount'
+        long_name = 'rainfall_amount'
+
+    elif product in ['RH', 'RB', 'RW', 'RL', 'RU', 'EH', 'EB', 'EW']:
+        if units == 'original':
+            scale_factor = None
+            add_offset = None
+            unit = '0.1mm h-1'
+        elif units == 'normal':
+            scale_factor = np.float32(precision)
+            add_offset = np.float(0.)
+            unit = 'mm h-1'
+        else:
+            scale_factor = np.float32(precision / (int * 1000))
+            add_offset = np.float(0)
+            unit = 'm s-1'
+
+        valid_min = np.int32(0)
+        valid_max = np.int32(4095)
+        missing_value = np.int32(4096)
+        fillvalue = np.int32(65535)
+        vtype = 'u2'
+        standard_name = 'rainfall_amount'
+        long_name = 'rainfall_amount'
+
+    elif product in ['SQ', 'SH', 'SF']:
+        scale_factor = np.float32(precision)
+        add_offset = np.float(0.)
+        valid_min = np.int32(0)
+        valid_max = np.int32(4095)
+        missing_value = np.int32(4096)
+        fillvalue = np.int32(65535)
+        vtype = 'u2'
+        standard_name = 'rainfall_amount'
+        long_name = 'rainfall_amount'
+        if int == (360 * 60):
+            unit = 'mm 6h-1'
+        elif int == (720 * 60):
+            unit = 'mm 12h-1'
+        elif int == (1440 * 60):
+            unit = 'mm d-1'
+
+    vattr = {'scale_factor': scale_factor, 'add_offset': add_offset,
+             'valid_min': valid_min, 'valid_max': valid_max,
+             'missing_value': missing_value, 'fillvalue': fillvalue,
+             'vtype': vtype, 'standard_name': standard_name,
+             'long_name': long_name, 'unit':unit}
+
+    return vattr
+
+
 def create_ncdf(filename, attrs, units='original'):
 
-    nx = attrs['ncol']
-    ny = attrs['nrow']
-    version = attrs['radolanversion']
-    precision = attrs['precision']
-    prodtype = attrs['producttype']
-    int = attrs['intervalseconds']
-    nodata = attrs['nodataflag']
-    missing_value = None
+    product = attrs['producttype']
+    if product not in ['DX']:
+        nx = attrs['ncol']
+        ny = attrs['nrow']
+        version = attrs['radolanversion']
+    else:
+        nx = attrs['clutter'].shape[0]
+        ny = attrs['clutter'].shape[1]
+        version = attrs['version']
+
+    #precision = attrs['precision']
+
+    #int = attrs['intervalseconds']
+    #nodata = attrs['nodataflag']
+    #missing_value = None
 
     # create NETCDF4 file in memory
     id = nc.Dataset(filename, 'w', format='NETCDF4', diskless=True, persist=True)
@@ -255,144 +354,77 @@ def create_ncdf(filename, attrs, units='original'):
     # create time bounds variable
     tbiid = id.createVariable('time_bnds', 'f8', ('time', 'nv',))
 
-    # create grid variable that serves as lon coordinate
-    lonid = id.createVariable('lon', 'f4', ('y', 'x',), zlib=True, complevel=4)
-    lonid.units = 'degrees_east'
-    lonid.standard_name = 'longitude'
-    lonid.long_name = 'longitude coordinate'
+    if product not in ['DX']:
+        # create grid variable that serves as lon coordinate
+        lonid = id.createVariable('lon', 'f4', ('x', 'y',), zlib=True, complevel=4)
+        lonid.units = 'degrees_east'
+        lonid.standard_name = 'longitude'
+        lonid.long_name = 'longitude coordinate'
 
-    # create grid variable that serves as lat coordinate
-    latid = id.createVariable('lat', 'f4', ('y', 'x',), zlib=True, complevel=4)
-    latid.units = 'degrees_north'
-    latid.standard_name = 'latitude'
-    latid.long_name = 'latitude coordinate'
+        # create grid variable that serves as lat coordinate
+        latid = id.createVariable('lat', 'f4', ('x', 'y',), zlib=True, complevel=4)
+        latid.units = 'degrees_north'
+        latid.standard_name = 'latitude'
+        latid.long_name = 'latitude coordinate'
 
-    # create projection variable that defines the projection according to CF-Metadata standards
-    coordid = id.createVariable('polar_stereographic', 'i4', zlib=True,
-                                complevel=2)
-    coordid.grid_mapping_name = 'polar_stereographic'
-    coordid.straight_vertical_longitude_from_pole = np.float32(10.)
-    coordid.latitude_of_projection_origin = np.float32(90.)
-    coordid.standard_parallel = np.float32(60.)
-    coordid.false_easting = np.float32(0.)
-    coordid.false_northing = np.float32(0.)
-    coordid.earth_model_of_projection = 'spherical'
-    coordid.earth_radius_of_projection = np.float32(6370.04)
-    coordid.units = 'km'
-    coordid.ancillary_data = 'grid_latitude grid_longitude'
-    coordid.long_name = 'polar_stereographic'
+        # create projection variable that defines the projection according to CF-Metadata standards
+        coordid = id.createVariable('polar_stereographic', 'i4', zlib=True,
+                                    complevel=2)
+        coordid.grid_mapping_name = 'polar_stereographic'
+        coordid.straight_vertical_longitude_from_pole = np.float32(10.)
+        coordid.latitude_of_projection_origin = np.float32(90.)
+        coordid.standard_parallel = np.float32(60.)
+        coordid.false_easting = np.float32(0.)
+        coordid.false_northing = np.float32(0.)
+        coordid.earth_model_of_projection = 'spherical'
+        coordid.earth_radius_of_projection = np.float32(6370.04)
+        coordid.units = 'km'
+        coordid.ancillary_data = 'grid_latitude grid_longitude'
+        coordid.long_name = 'polar_stereographic'
 
-    if prodtype in ['RX', 'EX']:
-        if units == 'original':
-            scale_factor = None
-            add_offset = None
-            unit = 'RVP6'
-        else:
-            scale_factor = np.float32(0.5)
-            add_offset = np.float32(-32.5)
-            unit = 'dBZ'
+    vattr = get_netcdf_varattrs(attrs, units=units)
 
-        valid_min = np.int32(0)
-        valid_max = np.int32(255)
-        missing_value = np.int32(255)
-        fillvalue = np.int32(255)
-        vtype = 'u1'
-        standard_name = 'equivalent_reflectivity_factor'
-        long_name = 'equivalent_reflectivity_factor'
-
-    elif prodtype in ['RY', 'RZ', 'EY', 'EZ']:
-        if units == 'original':
-            scale_factor = None
-            add_offset = None
-            unit = '0.01mm 5min-1'
-        elif units == 'normal':
-            scale_factor = np.float32(precision * 3600 / int)
-            add_offset = np.float(0)
-            unit = 'mm h-1'
-        else:
-            scale_factor = np.float32(precision / (int * 1000))
-            add_offset = np.float(0)
-            unit = 'm s-1'
-
-        valid_min = np.int32(0)
-        valid_max = np.int32(4095)
-        missing_value = np.int32(4096)
-        fillvalue = np.int32(65535)
-        vtype = 'u2'
-        standard_name = 'rainfall_amount'
-        long_name = 'rainfall_amount'
-
-    elif prodtype in ['RH', 'RB', 'RW', 'RL', 'RU', 'EH', 'EB', 'EW']:
-        if units == 'original':
-            scale_factor = None
-            add_offset = None
-            unit = '0.1mm h-1'
-        elif units == 'normal':
-            scale_factor = np.float32(precision)
-            add_offset = np.float(0.)
-            unit = 'mm h-1'
-        else:
-            scale_factor = np.float32(precision / (int * 1000))
-            add_offset = np.float(0)
-            unit = 'm s-1'
-
-        valid_min = np.int32(0)
-        valid_max = np.int32(4095)
-        missing_value = np.int32(4096)
-        fillvalue = np.int32(65535)
-        vtype = 'u2'
-        standard_name = 'rainfall_amount'
-        long_name = 'rainfall_amount'
-
-    elif prodtype in ['SQ', 'SH', 'SF']:
-        scale_factor = np.float32(precision)
-        add_offset = np.float(0.)
-        valid_min = np.int32(0)
-        valid_max = np.int32(4095)
-        missing_value = np.int32(4096)
-        fillvalue = np.int32(65535)
-        vtype = 'u2'
-        standard_name = 'rainfall_amount'
-        long_name = 'rainfall_amount'
-        if int == (360 * 60):
-            unit = 'mm 6h-1'
-        elif int == (720 * 60):
-            unit = 'mm 12h-1'
-        elif int == (1440 * 60):
-            unit = 'mm d-1'
-
-    prod = id.createVariable('data', vtype, ('time', 'y', 'x',),
-                             fill_value=fillvalue, zlib=True, complevel=4,
+    prod = id.createVariable('data', vattr['vtype'], ('time', 'x', 'y',),
+                             fill_value=vattr['fillvalue'], zlib=True, complevel=4,
                              chunksizes=(1, 32, 32))
     # accept data as unsigned byte without scaling, crucial for writing already packed data
     #prod.set_auto_maskandscale(False)
-    prod.units = unit
-    prod.standard_name = standard_name
-    prod.long_name = long_name
-    prod.grid_mapping = 'polar_stereographic'
-    prod.coordinates = 'lat lon'
-    if scale_factor:
-        prod.scale_factor = scale_factor
-    if add_offset:
-        prod.add_offset = add_offset
-    if valid_min:
-        prod.valid_min = valid_min
-    if valid_max:
-        prod.valid_max = valid_max
-    if missing_value:
-        prod.missing_value = missing_value
+    prod.units = vattr['unit']
+    prod.standard_name = vattr['standard_name']
+    prod.long_name = vattr['long_name']
+
+    if product not in ['DX']:
+        prod.grid_mapping = 'polar_stereographic'
+        prod.coordinates = 'lat lon'
+
+    if vattr['scale_factor']:
+        prod.scale_factor = vattr['scale_factor']
+    if vattr['add_offset']:
+        prod.add_offset = vattr['add_offset']
+    if vattr['valid_min']:
+        prod.valid_min = vattr['valid_min']
+    if vattr['valid_max']:
+        prod.valid_max = vattr['valid_max']
+    if vattr['missing_value']:
+        prod.missing_value = vattr['missing_value']
     prod.version = 'RADOLAN {0}'.format(version)
-    prod.source = prodtype
+    prod.source = product
     prod.comment = 'NO COMMENT'
 
     id_str1 = id.createVariable('radars', 'S128', ('time',), zlib=True,
                                 complevel=4)
 
     # create GLOBAL attributes
-    id.Title = 'RADOLAN {0} Composite'.format(prodtype)
+    if product not in ['DX']:
+        id.Title = 'RADOLAN {0} Composite'.format(product)
+        id.History = 'Data transferred from RADOLAN composite format to netcdf using wradvis version 0.1 by wradlib developers'
+        id.Source = 'DWD C-Band Weather Radar Network, Original RADOLAN Data by Deutscher Wetterdienst'
+    else:
+        id.Title = '{0} - radarid: {1}'.format(product, attrs['radarid'])
+        id.History = 'Data transferred from DX format to netcdf using wradvis version 0.1 by wradlib developers'
+        id.Source = 'DWD C-Band Weather Radar Network, Original DX Data by Deutscher Wetterdienst'
+
     id.Institution = 'Data owned by Deutscher Wetterdienst'
-    id.Source = 'DWD C-Band Weather Radar Network, Original RADOLAN Data by Deutscher Wetterdienst'
-    id.History = 'Data transferred from RADOLAN composite format to netcdf using wradvis version 0.1 by wradlib developers'
     id.Conventions = 'CF-1.6 where applicable'
     utcnow = dt.datetime.utcnow()
     id.Processing_date = utcnow.strftime("%Y-%m-%dT%H:%M:%S")
@@ -400,17 +432,20 @@ def create_ncdf(filename, attrs, units='original'):
     id.Comments = 'blank'
     id.License = 'DWD Licenses'
 
-
-
     # fill general variables
-    ny, nx = attrs['ncol'], attrs['nrow']
-    radolan_grid_xy = wrl.georef.get_radolan_grid(nx, ny)
-    xarr = radolan_grid_xy[0, :, 0]
-    yarr = radolan_grid_xy[:, 0, 1]
-    radolan_grid_ll = wrl.georef.get_radolan_grid(nx, ny, wgs84=True)
-    lons = radolan_grid_ll[..., 0]
-    lats = radolan_grid_ll[..., 1]
-
+    if product not in ['DX']:
+        #ny, nx = attrs['ncol'], attrs['nrow']
+        radolan_grid_xy = wrl.georef.get_radolan_grid(nx, ny)
+        xarr = radolan_grid_xy[0, :, 0]
+        yarr = radolan_grid_xy[:, 0, 1]
+        radolan_grid_ll = wrl.georef.get_radolan_grid(nx, ny, wgs84=True)
+        lons = radolan_grid_ll[..., 0]
+        lats = radolan_grid_ll[..., 1]
+        id.variables['lat'][:] = lats
+        id.variables['lon'][:] = lons
+    else:
+        xarr = np.arange(nx)
+        yarr = np.arange(ny)
 
     id.variables['x'][:] = xarr
     id.variables['x'].valid_min = xarr[0]
@@ -418,34 +453,44 @@ def create_ncdf(filename, attrs, units='original'):
     id.variables['y'][:] = yarr
     id.variables['y'].valid_min = yarr[0]
     id.variables['y'].valid_max = yarr[-1]
-    id.variables['lat'][:] = lats
-    id.variables['lon'][:] = lons
+
 
     return id
 
 
 def add_ncdf(id, data, time_index, attrs):
+
+    if attrs['producttype'] in ['DX']:
+        mas = True
+    else:
+        mas = False
+
     # remove clutter, nodata and secondary data from raw files
     # wrap with if/else if necessary
-    if attrs['cluttermask'] is not None:
-        data.flat[attrs['cluttermask']] = id.variables[
+    cluttermask = attrs.get('cluttermask', None)
+    nodatamask = attrs.get('nodatamask', None)
+    if cluttermask is not None:
+        data.flat[cluttermask] = id.variables[
             'data'].missing_value
-    if attrs['nodatamask'] is not None:
-        data.flat[attrs['nodatamask']] = id.variables[
+    if nodatamask is not None:
+        data.flat[nodatamask] = id.variables[
             'data'].missing_value
     #if attrs['secondary'] is not None:
     #    data.flat[attrs['secondary']] = id.variables[
     #        attrs['producttype'].lower()].missing_value
 
-    id.variables['data'].set_auto_maskandscale(False)
+
+    id.variables['data'].set_auto_maskandscale(mas)
     id.variables['data'][time_index, :, :] = data
-    id.variables['data'].set_auto_maskandscale(True)
-    print(attrs['datetime'])
-    delta = attrs['datetime'] - dt.datetime.utcfromtimestamp(0)
+    id.variables['data'].set_auto_maskandscale(~mas)
+    try:
+        delta = attrs['datetime'] - dt.datetime.utcfromtimestamp(0)
+    except TypeError:
+        delta = attrs['datetime'] - dt.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.UTC)
     id.variables['time'][time_index] = delta.total_seconds()
     id.variables['time_bnds'][time_index, :] = delta.total_seconds()
-    # id.variables['time_bnds'][time_index,1] = delta.total_seconds() + attrs['intervalseconds']
-    id.variables['radars'][time_index] = ','.join(attrs['radarlocations'])
+    #id.variables['time_bnds'][time_index,1] = delta.total_seconds() + attrs['intervalseconds']
+    #id.variables['radars'][time_index] = ','.join(attrs['radarlocations'])
 
 
 def get_dt(unix):

@@ -592,8 +592,10 @@ class Properties(QtCore.QObject):
             self.mem.close()
         self.mem = utils.open_ncdf(newfile)
         conf["source"]["product"] = self.mem.variables['data'].source
+        # activate the correct canvas (grid or polar)
+        self.product = conf["source"]["product"]
+        self.parent.iwidget.set_canvas(self.product)
         self.signal_props_changed.emit(0)
-
 
     def save_data(self):
         newfile = QtGui.QFileDialog.getSaveFileName(self.parent,
