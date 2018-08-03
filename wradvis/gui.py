@@ -1,13 +1,16 @@
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2016, wradlib Development Team. All Rights Reserved.
-# Distributed under the MIT License. See LICENSE.txt for more info.
-# -----------------------------------------------------------------------------
 #!/usr/bin/env python
+# Copyright (c) 2016-2018, wradlib developers.
+# Distributed under the MIT License. See LICENSE.txt for more info.
 
-from PyQt4 import QtGui, QtCore
+import sys
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QSplitter, QAction,
+                             QDockWidget, QSizePolicy)
 import vispy
 
+import matplotlib
+matplotlib.use('Qt5Agg')
 # other wradvis imports
 from wradvis.glcanvas import RadolanWidget
 from wradvis.mplcanvas import MplWidget
@@ -17,7 +20,7 @@ from wradvis import utils
 from wradvis.config import conf
 
 
-class MainWindow(QtGui.QMainWindow):
+class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -49,7 +52,7 @@ class MainWindow(QtGui.QMainWindow):
         self.props = Properties(self)
 
         # add Horizontal Splitter and the three widgets
-        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.splitter = QSplitter(QtCore.Qt.Horizontal)
         self.splitter.addWidget(self.swapper[0])
         self.splitter.addWidget(self.swapper[1])
         self.swapper[1].hide()
@@ -72,29 +75,29 @@ class MainWindow(QtGui.QMainWindow):
 
     def createActions(self):
         # Set  directory
-        self.setDataDir = QtGui.QAction("&Set  directory", self,
-                                        statusTip='Set  directory',
-                                        triggered=self.props.set_datadir)
+        self.setDataDir = QAction("&Set  directory", self,
+                                  statusTip='Set  directory',
+                                  triggered=self.props.set_datadir)
         # Open project (configuration)
-        self.openConf = QtGui.QAction("&Open project", self,
-                                      shortcut="Ctrl+O",
-                                      statusTip='Open project',
-                                      triggered=self.props.open_conf)
+        self.openConf = QAction("&Open project", self)
+        self.openConf.setShortcut("Ctrl+O")
+        self.openConf.setStatusTip('Open project')
+        self.openConf.triggered.connect(self.props.open_conf)
 
         # Save project (configuration)
-        self.saveConf = QtGui.QAction("&Save project", self,
+        self.saveConf = QAction("&Save project", self,
                                       shortcut="Ctrl+S",
                                       statusTip='Save project',
                                       triggered=self.props.save_conf)
 
         # Load netcdf (data file)
-        self.loadNC = QtGui.QAction("&Load NetCDF", self,
+        self.loadNC = QAction("&Load NetCDF", self,
                                     shortcut="Ctrl+L",
                                     statusTip='Load netCDF data file',
                                     triggered=self.props.load_data)
 
         # Save netcdf (data file)
-        self.saveNC = QtGui.QAction("Save &NetCDF", self,
+        self.saveNC = QAction("Save &NetCDF", self,
                                       shortcut="Ctrl+N",
                                       statusTip='Save data file as netCDF',
                                       triggered=self.props.save_data)
@@ -112,31 +115,31 @@ class MainWindow(QtGui.QMainWindow):
         self.helpMenu = self.menuBar().addMenu('&Help')
 
     def createDockWindows(self):
-        dock = QtGui.QDockWidget("Radar Source Data", self)
+        dock = QDockWidget("Radar Source Data", self)
         dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea)
         self.sourcebox = SourceBox(self)
         dock.setWidget(self.sourcebox)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
         self.toolsMenu.addAction(dock.toggleViewAction())
 
-        dock = QtGui.QDockWidget("Media Handling", self)
+        dock = QDockWidget("Media Handling", self)
         dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea)
         self.mediabox = MediaBox(self)
         dock.setWidget(self.mediabox)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
         self.toolsMenu.addAction(dock.toggleViewAction())
 
-        dock = QtGui.QDockWidget("Mouse Interaction", self)
+        dock = QDockWidget("Mouse Interaction", self)
         dock.setAllowedAreas(QtCore.Qt.RightDockWidgetArea)
         self.mousebox = MouseBox(self)
         dock.setWidget(self.mousebox)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
         self.toolsMenu.addAction(dock.toggleViewAction())
 
-        dock = QtGui.QDockWidget("Time Graphs", self)
+        dock = QDockWidget("Time Graphs", self)
         dock.setAllowedAreas(QtCore.Qt.BottomDockWidgetArea)
-        size_pol = (QtGui.QSizePolicy.MinimumExpanding,
-                    QtGui.QSizePolicy.MinimumExpanding)
+        size_pol = (QSizePolicy.MinimumExpanding,
+                    QSizePolicy.MinimumExpanding)
         self.graphbox = GraphBox(self, size_pol=size_pol)
         dock.setWidget(self.graphbox)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, dock)
@@ -156,19 +159,24 @@ class MainWindow(QtGui.QMainWindow):
             text = event.text()
         else:
             text = event.text
-        if text == 'c':
-            self.swapper = self.swapper[::-1]
-            self.iwidget = self.swapper[0]
-            self.swapper[0].show()
-            self.swapper[0].setFocus()
-            self.swapper[1].hide()
+        print(event)
+        # Todo: fully implement MPLCanvas
+        #if text == 'c':
+        #    self.swapper = self.swapper[::-1]
+        #    self.iwidget = self.swapper[0]
+        #    self.swapper[0].show()
+        #    self.swapper[0].setFocus()
+        #    self.swapper[1].hide()
 
 
-def start(arg):
-    appQt = QtGui.QApplication(arg.argv)
+def start(args=None):
+    if args is None:
+        args = sys.argv[1:]
+    appQt = QApplication(args)
     win = MainWindow()
     win.show()
     appQt.exec_()
 
+
 if __name__ == '__main__':
-    print('wradview: Calling module <gui> as main...')
+   start()

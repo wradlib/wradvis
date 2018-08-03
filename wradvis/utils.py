@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2016, wradlib Development Team. All Rights Reserved.
-# Distributed under the MIT License. See LICENSE.txt for more info.
-# -----------------------------------------------------------------------------
 #!/usr/bin/env python
+# Copyright (c) 2016-2018, wradlib developers.
+# Distributed under the MIT License. See LICENSE.txt for more info.
 
 """
 """
@@ -35,6 +32,7 @@ def radolan_to_wgs84(coords):
                               projection_target=proj_wgs)
     return ll
 
+
 def dx_to_wgs84(coords):
 
     # currently works only with radar feldberg
@@ -51,14 +49,14 @@ def dx_to_wgs84(coords):
 
     radius = wrl.georef.get_earth_radius(radar["lat"], proj_radar)
 
-    lon, lat, height = wrl.georef.polar2lonlatalt_n(coords[1] * 1000,
+    lonlatalt = wrl.georef.spherical_to_proj(coords[1] * 1000,
                                                     coords[0],
                                                     0.8,
                                                     sitecoords,
                                                     re=radius,
-                                                    ke=4. / 3.)
-
-    return np.hstack((lon, lat))
+                                                    ke=4. / 3.
+                                             )
+    return lonlatalt[..., 0:2]
 
 
 def get_radolan_grid():
@@ -74,7 +72,7 @@ def read_radolan(f, missing=-9999, loaddata=True):
 
 
 def read_dx(f, missing=0, loaddata=True):
-    return wrl.io.readDX(f)
+    return wrl.io.read_dx(f)
 
 
 def get_cities_coords():
@@ -91,9 +89,10 @@ def get_cities_coords():
 
     return cities
 
+
 # just for testing purposes, this can be used from wradlib when it is finalized
 # and adapted
-def read_RADOLAN_composite(fname, missing=-9999, loaddata=True):
+def read_RADOLAN_composite(f, missing=-9999, loaddata=True):
     """Read quantitative radar composite format of the German Weather Service
 
     The quantitative composite format of the DWD (German Weather Service) was
@@ -129,11 +128,14 @@ def read_RADOLAN_composite(fname, missing=-9999, loaddata=True):
     NODATA = missing
     mask = 0xFFF  # max value integer
 
-    f = wrl.io.get_radolan_filehandle(fname)
+    # If a file name is supplied, get a file handle
+    try:
+        header = wrl.io.radolan.read_radolan_header(f)
+    except AttributeError:
+        f = wrl.io.radolan.get_radolan_filehandle(f)
+        header = wrl.io.radolan.read_radolan_header(f)
 
-    header = wrl.io.read_radolan_header(f)
-
-    attrs = wrl.io.parse_DWD_quant_composite_header(header)
+    attrs = wrl.io.radolan.parse_dwd_composite_header(header)
 
     if not loaddata:
         f.close()
@@ -237,11 +239,11 @@ def get_netcdf_varattrs(attrs, units='original'):
             add_offset = None
             unit = '0.01mm 5min-1'
         elif units == 'normal':
-            scale_factor = np.float32(precision * 3600 / int)
+            scale_factor = np.float32(precision * 3600)
             add_offset = np.float(0)
             unit = 'mm h-1'
         else:
-            scale_factor = np.float32(precision / (int * 1000))
+            scale_factor = np.float32(precision / 1000)
             add_offset = np.float(0)
             unit = 'm s-1'
 

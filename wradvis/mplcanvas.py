@@ -1,18 +1,18 @@
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2016, wradlib Development Team. All Rights Reserved.
-# Distributed under the MIT License. See LICENSE.txt for more info.
-# -----------------------------------------------------------------------------
 #!/usr/bin/env python
+# Copyright (c) 2016-2018, wradlib developers.
+# Distributed under the MIT License. See LICENSE.txt for more info.
 
 
 import numpy as np
 import matplotlib
-matplotlib.use('Qt4Agg')
+matplotlib.use('Qt5Agg')
 
 
-from PyQt4 import QtGui, QtCore
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QSplitter, QAction,
+                             QDockWidget, QSizePolicy, QWidget, QHBoxLayout)
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.cm import get_cmap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -34,8 +34,8 @@ class MplCanvas(FigureCanvas):
 
         # we define the widget as expandable
         FigureCanvas.setSizePolicy(self,
-        QtGui.QSizePolicy.Expanding,
-        QtGui.QSizePolicy.Expanding)
+        QSizePolicy.Expanding,
+        QSizePolicy.Expanding)
         # notify the system of updated policy
         FigureCanvas.updateGeometry(self)
 
@@ -55,6 +55,7 @@ class MplCanvas(FigureCanvas):
         self.ax.set_xlim([grid[..., 0].min(), grid[..., 0].max()])
         self.ax.set_ylim([grid[..., 1].min(), grid[..., 1].max()])
         self._mouse_position = None
+        self._mouse_press_position = (0, 0)
 
         self.create_cities()
 
@@ -106,9 +107,9 @@ class MplCanvas(FigureCanvas):
             self.mouse_moved.emit(event)
 
 
-class MplWidget(QtGui.QWidget):
+class MplWidget(QWidget):
     def __init__(self):
-        QtGui.QWidget.__init__(self)
+        QWidget.__init__(self)
 
         self.rcanvas = MplCanvas()
         self.pcanvas = MplCanvas()
@@ -129,7 +130,7 @@ class MplWidget(QtGui.QWidget):
         #self.splitter.setStretchFactor(0, 1)
         #self.splitter.setStretchFactor(1, 1)
         #self.splitter.setStretchFactor(2, 0)
-        self.hbl = QtGui.QHBoxLayout()
+        self.hbl = QHBoxLayout()
         self.hbl.addWidget(self.swapper['R'])
         self.hbl.addWidget(self.swapper['P'])
         self.setLayout(self.hbl)

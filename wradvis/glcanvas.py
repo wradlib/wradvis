@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2016, wradlib Development Team. All Rights Reserved.
-# Distributed under the MIT License. See LICENSE.txt for more info.
-# -----------------------------------------------------------------------------
 #!/usr/bin/env python
+# Copyright (c) 2016-2018, wradlib developers.
+# Distributed under the MIT License. See LICENSE.txt for more info.
 
 import numpy as np
 
-from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore
+from PyQt5.QtWidgets import (QSplitter, QWidget, QHBoxLayout)
 
 from vispy.scene import SceneCanvas
 from vispy.util.event import EventEmitter
@@ -114,7 +112,6 @@ class GlCanvas(SceneCanvas):
         self.vpline.set_data(pos[0])
         self.hpline.set_data(pos[1])
         self.update()
-
 
 
 class AxisCanvas(GlCanvas):
@@ -403,7 +400,8 @@ class PolarImage(Image):
         # the translation moves the image to centere the ppi
         rot = MatrixTransform()
         rot.rotate(180, (0, 0, 1))
-        self.transform = (STTransform(translate=(self.range+xoff, self.range+yoff, 0)) *
+        self.transform = (STTransform(translate=(self.range+xoff,
+                                                 self.range+yoff, 0)) *
                           rot *
                           PTransform())
         self.freeze()
@@ -468,7 +466,7 @@ class DXCanvas(GlCanvas):
         self.images.append(image)
 
 
-class RadolanWidget(QtGui.QWidget):
+class RadolanWidget(QWidget):
     def __init__(self, parent=None):
         super(RadolanWidget, self).__init__(parent)
         self.parent = parent
@@ -489,7 +487,7 @@ class RadolanWidget(QtGui.QWidget):
         self.swapper['R'] = self.rcanvas.native
         self.swapper['P'] = self.pcanvas.native
 
-        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.splitter = QSplitter(QtCore.Qt.Horizontal)
         self.splitter.addWidget(self.swapper['R'])
         self.splitter.addWidget(self.swapper['P'])
         self.swapper['P'].hide()
@@ -499,7 +497,7 @@ class RadolanWidget(QtGui.QWidget):
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 1)
         self.splitter.setStretchFactor(2, 0)
-        self.hbl = QtGui.QHBoxLayout()
+        self.hbl = QHBoxLayout()
         self.hbl.addWidget(self.splitter)
         self.setLayout(self.hbl)
 
@@ -547,7 +545,7 @@ class RadolanWidget(QtGui.QWidget):
         self.canvas.update()
 
 
-class RadolanLineWidget(QtGui.QWidget):
+class RadolanLineWidget(QWidget):
 
     #signal_mouse_double_clicked = QtCore.pyqtSignal(int, name='mouseDblClicked')
 
@@ -557,7 +555,7 @@ class RadolanLineWidget(QtGui.QWidget):
         self.canvas = AxisCanvas(vrow=1, vcol=2)
         self.canvas.create_native()
         self.canvas.native.setParent(self)
-        self.hbl = QtGui.QHBoxLayout()
+        self.hbl = QHBoxLayout()
         self.hbl.addWidget(self.canvas.native)
         self.setLayout(self.hbl)
 

@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-# -----------------------------------------------------------------------------
-# Copyright (c) 2016, wradlib Development Team. All Rights Reserved.
-# Distributed under the MIT License. See LICENSE.txt for more info.
-# -----------------------------------------------------------------------------
 #!/usr/bin/env python
+# Copyright (c) 2016-2018, wradlib developers.
+# Distributed under the MIT License. See LICENSE.txt for more info.
 
 """
 """
@@ -11,16 +8,24 @@
 import os
 import glob
 from datetime import datetime as dt
+import numpy as np
+from urllib.request import urlopen
 
-from PyQt4 import QtGui, QtCore
-from PyQt4.QtGui import QLabel, QFontMetrics, QPainter
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QLabel, QWidget,
+                             QSpinBox, QComboBox, QCheckBox, QFrame, QSlider,
+                             QGridLayout, QVBoxLayout, QToolButton,
+                             QPushButton, QStyle, QFileDialog, QSizePolicy,
+                             QStyleOptionSlider)
+from PyQt5.QtGui import QFontMetrics, QPainter, QPalette
+
 
 from wradvis import utils
 from wradvis.config import conf
 from wradvis.glcanvas import RadolanLineWidget
 
 
-class TimeSlider(QtGui.QSlider):
+class TimeSlider(QSlider):
     """
         This software is OSI Certified Open Source Software.
         OSI Certified is a certification mark of the Open Source Initiative.
@@ -67,8 +72,8 @@ class TimeSlider(QtGui.QSlider):
         self._low = self.minimum()
         self._high = self.maximum()
 
-        self.pressed_control = QtGui.QStyle.SC_None
-        self.hover_control = QtGui.QStyle.SC_None
+        self.pressed_control = QStyle.SC_None
+        self.hover_control = QStyle.SC_None
         self.click_offset = 0
 
         # 0 for the low, 1 for the high, -1 for both
@@ -93,38 +98,38 @@ class TimeSlider(QtGui.QSlider):
         # based on
         # http://qt.gitorious.org/qt/qt/blobs/master/src/gui/widgets/qslider.cpp
 
-        painter = QtGui.QPainter(self)
-        style = QtGui.QApplication.style()
+        painter = QPainter(self)
+        style = QApplication.style()
 
         for i, value in enumerate([self._low, self._high]):
-            opt = QtGui.QStyleOptionSlider()
+            opt = QStyleOptionSlider()
             self.initStyleOption(opt)
 
             # Only draw the groove for the first slider so it doesn't get drawn
             # on top of the existing ones every time
             if i == 0:
-                opt.subControls = QtGui.QStyle.SC_SliderGroove | QtGui.QStyle.SC_SliderHandle
+                opt.subControls = QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
             else:
-                opt.subControls = QtGui.QStyle.SC_SliderHandle
+                opt.subControls = QStyle.SC_SliderHandle
 
             if self.tickPosition() != self.NoTicks:
-                opt.subControls |= QtGui.QStyle.SC_SliderTickmarks
+                opt.subControls |= QStyle.SC_SliderTickmarks
 
             if self.pressed_control:
                 opt.activeSubControls = self.pressed_control
-                opt.state |= QtGui.QStyle.State_Sunken
+                opt.state |= QStyle.State_Sunken
             else:
                 opt.activeSubControls = self.hover_control
 
             opt.sliderPosition = value
             opt.sliderValue = value
-            style.drawComplexControl(QtGui.QStyle.CC_Slider, opt, painter, self)
+            style.drawComplexControl(QStyle.CC_Slider, opt, painter, self)
 
 
     def mousePressEvent(self, event):
         event.accept()
 
-        style = QtGui.QApplication.style()
+        style = QApplication.style()
         button = event.button()
 
         # In a normal slider control, when the user clicks on a point in the
@@ -134,7 +139,7 @@ class TimeSlider(QtGui.QSlider):
         # slider parts
 
         if button:
-            opt = QtGui.QStyleOptionSlider()
+            opt = QStyleOptionSlider()
             self.initStyleOption(opt)
 
             self.active_slider = -1
@@ -152,7 +157,7 @@ class TimeSlider(QtGui.QSlider):
                     break
 
             if self.active_slider < 0:
-                self.pressed_control = QtGui.QStyle.SC_SliderHandle
+                self.pressed_control = QStyle.SC_SliderHandle
                 self.click_offset = self.__pixelPosToRangeValue(self.__pick(event.pos()))
                 self.triggerAction(self.SliderMove)
                 self.setRepeatAction(self.SliderNoAction)
@@ -160,13 +165,13 @@ class TimeSlider(QtGui.QSlider):
             event.ignore()
 
     def mouseMoveEvent(self, event):
-        if self.pressed_control != QtGui.QStyle.SC_SliderHandle:
+        if self.pressed_control != QStyle.SC_SliderHandle:
             event.ignore()
             return
 
         event.accept()
         new_pos = self.__pixelPosToRangeValue(self.__pick(event.pos()))
-        opt = QtGui.QStyleOptionSlider()
+        opt = QStyleOptionSlider()
         self.initStyleOption(opt)
 
         if self.active_slider < 0:
@@ -208,9 +213,9 @@ class TimeSlider(QtGui.QSlider):
 
 
     def __pixelPosToRangeValue(self, pos):
-        opt = QtGui.QStyleOptionSlider()
+        opt = QStyleOptionSlider()
         self.initStyleOption(opt)
-        style = QtGui.QApplication.style()
+        style = QApplication.style()
 
         gr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderGroove, self)
         sr = style.subControlRect(style.CC_Slider, opt, style.SC_SliderHandle, self)
@@ -241,12 +246,12 @@ class LongLabel(QLabel):
         painter.drawText(self.rect(), self.alignment(), elided)
 
 
-class DockBox(QtGui.QWidget):
-    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed,
-                                              QtGui.QSizePolicy.Fixed)):
+class DockBox(QWidget):
+    def __init__(self, parent=None, size_pol=(QSizePolicy.Fixed,
+                                              QSizePolicy.Fixed)):
         super(DockBox, self).__init__(parent)
 
-        self.layout = QtGui.QGridLayout()
+        self.layout = QGridLayout()
         self.setLayout(self.layout)
         self.setSizePolicy(size_pol[0], size_pol[1])
 
@@ -254,8 +259,8 @@ class DockBox(QtGui.QWidget):
 
 
 class GraphBox(DockBox):
-    def __init__(self, parent=None, size_pol=(QtGui.QSizePolicy.Fixed,
-                                              QtGui.QSizePolicy.Fixed)):
+    def __init__(self, parent=None, size_pol=(QSizePolicy.Fixed,
+                                              QSizePolicy.Fixed)):
         super(GraphBox, self).__init__(parent)
 
         self.parent = parent
@@ -276,26 +281,26 @@ class MouseBox(DockBox):
 
         self.parent = parent
         self.r0 = utils.get_radolan_origin()
-        self.mousePointLabel = QtGui.QLabel("Mouse Position", self)
-        self.mousePointXYLabel = QtGui.QLabel("XY", self)
-        self.mousePointLLLabel = QtGui.QLabel("LL", self)
-        self.mousePointXY = QtGui.QLabel("", self)
-        self.mousePointLL = QtGui.QLabel("", self)
-        self.mousePointS = QtGui.QLabel("", self)
-        self.curCheckBox = QtGui.QCheckBox()
+        self.mousePointLabel = QLabel("Mouse Position", self)
+        self.mousePointXYLabel = QLabel("XY", self)
+        self.mousePointLLLabel = QLabel("LL", self)
+        self.mousePointXY = QLabel("", self)
+        self.mousePointLL = QLabel("", self)
+        self.mousePointS = QLabel("", self)
+        self.curCheckBox = QCheckBox()
         self.curCheckBox.stateChanged.connect(self.signal_toggle_Cursor)
 
-        self.hline2 = QtGui.QFrame()
-        self.hline2.setFrameShape(QtGui.QFrame.HLine)
-        self.hline2.setFrameShadow(QtGui.QFrame.Sunken)
+        self.hline2 = QFrame()
+        self.hline2.setFrameShape(QFrame.HLine)
+        self.hline2.setFrameShadow(QFrame.Sunken)
         self.layout.addWidget(self.mousePointLabel, 0, 0)
         self.layout.addWidget(self.mousePointXYLabel, 0, 1)
         self.layout.addWidget(self.mousePointXY, 0, 2)
         self.layout.addWidget(self.mousePointLLLabel, 1, 1)
         self.layout.addWidget(self.mousePointLL, 1, 2)
-        self.layout.addWidget(QtGui.QLabel("XYsel", self), 2, 1)
+        self.layout.addWidget(QLabel("XYsel", self), 2, 1)
         self.layout.addWidget(self.mousePointS, 2, 2)
-        self.layout.addWidget(QtGui.QLabel("Activate Cursor", self), 3, 0)
+        self.layout.addWidget(QLabel("Activate Cursor", self), 3, 0)
         self.layout.addWidget(self.curCheckBox, 3, 1)
         self.layout.addWidget(self.hline2, 4, 0, 1, 3)
 
@@ -330,22 +335,22 @@ class SourceBox(DockBox):
     def __init__(self, parent=None):
         super(SourceBox, self).__init__(parent)
 
-        palette = QtGui.QPalette()
+        palette = QPalette()
         self.setStyleSheet(""" QMenuBar {
                 font-size:13px;
             }""")
 
         # Horizontal line
-        self.hline = QtGui.QFrame()
-        self.hline.setFrameShape(QtGui.QFrame.HLine)
-        self.hline.setFrameShadow(QtGui.QFrame.Sunken)
+        self.hline = QFrame()
+        self.hline.setFrameShape(QFrame.HLine)
+        self.hline.setFrameShadow(QFrame.Sunken)
         self.dirname = "None" #conf["dirs"]["time_slider"]
         self.dirLabel = LongLabel(self.dirname)
 
         self.layout.addWidget(LongLabel("Current data directory"), 0, 0, 1, 7)
         self.layout.addWidget(self.dirLabel, 1, 0, 1, 7)
         self.dirLabel.setFixedWidth(200)
-        palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.darkGreen)
+        palette.setColor(QPalette.Foreground, QtCore.Qt.darkGreen)
         self.dirLabel.setPalette(palette)
 
         self.props.props_changed.connect(self.update_label)
@@ -368,25 +373,25 @@ class MediaBox(DockBox):
         self.parent = parent
 
         # Time Slider
-        self.time_slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.time_slider = QSlider(QtCore.Qt.Horizontal)
         self.time_slider.setMinimum(0)
         self.time_slider.setTickInterval(1)
         self.time_slider.setSingleStep(1)
         self.time_slider.valueChanged.connect(self.time_slider_moved)
-        self.current_date = QtGui.QLabel("1900-01-01")
-        self.current_time = QtGui.QComboBox()
+        self.current_date = QLabel("1900-01-01")
+        self.current_time = QComboBox()
         self.current_time.currentIndexChanged.connect(self.current_time_changed)
 
         # Range Slider
         self.range = TimeSlider(QtCore.Qt.Horizontal)
-        self.range_start = QtGui.QComboBox()
-        self.range_end = QtGui.QComboBox()
+        self.range_start = QComboBox()
+        self.range_end = QComboBox()
         self.range.signal_range_moved.connect(self.range_update)
         self.range_start.currentIndexChanged.connect(self.range_changed)
         self.range_end.currentIndexChanged.connect(self.range_changed)
 
         # Speed Slider
-        self.speed = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.speed = QSlider(QtCore.Qt.Horizontal)
         self.speed.setMinimum(0)
         self.speed.setMaximum(1000)
         self.speed.setTickInterval(10)
@@ -395,33 +400,33 @@ class MediaBox(DockBox):
 
         # layout
         self.createMediaButtons()
-        self.hline0 = QtGui.QFrame()
-        self.hline0.setFrameShape(QtGui.QFrame.HLine)
-        self.hline0.setFrameShadow(QtGui.QFrame.Sunken)
-        self.hline1 = QtGui.QFrame()
-        self.hline1.setFrameShape(QtGui.QFrame.HLine)
-        self.hline1.setFrameShadow(QtGui.QFrame.Sunken)
+        self.hline0 = QFrame()
+        self.hline0.setFrameShape(QFrame.HLine)
+        self.hline0.setFrameShadow(QFrame.Sunken)
+        self.hline1 = QFrame()
+        self.hline1.setFrameShape(QFrame.HLine)
+        self.hline1.setFrameShadow(QFrame.Sunken)
 
         self.layout.addWidget(self.hline0, 0, 0, 1, 5)
-        self.layout.addWidget(QtGui.QLabel("Date"), 1, 0, 1, 1)
+        self.layout.addWidget(QLabel("Date"), 1, 0, 1, 1)
         self.layout.addWidget(self.current_date, 1, 1, 1, 2)
         self.layout.addWidget(self.playPauseButton, 2, 1)
         self.layout.addWidget(self.rewButton, 2, 2)
         self.layout.addWidget(self.fwdButton, 2, 3)
 
-        self.layout.addWidget(QtGui.QLabel("Start Time"), 3, 1, 1, 1)
-        self.layout.addWidget(QtGui.QLabel("Current Time"), 3, 2, 1, 1)
-        self.layout.addWidget(QtGui.QLabel("Stop Time"), 3, 3, 1, 1)
+        self.layout.addWidget(QLabel("Start Time"), 3, 1, 1, 1)
+        self.layout.addWidget(QLabel("Current Time"), 3, 2, 1, 1)
+        self.layout.addWidget(QLabel("Stop Time"), 3, 3, 1, 1)
 
         self.layout.addWidget(self.range_start, 4, 1, 1, 1)
         self.layout.addWidget(self.current_time, 4, 2, 1, 1)
         self.layout.addWidget(self.range_end, 4, 3, 1, 1)
 
-        self.layout.addWidget(QtGui.QLabel("Time"), 5, 0, 1, 1)
+        self.layout.addWidget(QLabel("Time"), 5, 0, 1, 1)
         self.layout.addWidget(self.time_slider, 5, 1, 1, 4)
-        self.layout.addWidget(QtGui.QLabel("Range"), 6, 0, 1, 1)
+        self.layout.addWidget(QLabel("Range"), 6, 0, 1, 1)
         self.layout.addWidget(self.range, 6, 1, 1, 4)
-        self.layout.addWidget(QtGui.QLabel("Speed"), 7, 0, 1, 1)
+        self.layout.addWidget(QLabel("Speed"), 7, 0, 1, 1)
         self.layout.addWidget(self.speed, 7, 1, 1, 4)
         self.layout.addWidget(self.hline1, 8, 0, 1, 5)
 
@@ -436,22 +441,22 @@ class MediaBox(DockBox):
     def createMediaButtons(self):
         iconSize = QtCore.QSize(18, 18)
 
-        self.playPauseButton = self.createButton(QtGui.QStyle.SP_MediaPlay,
+        self.playPauseButton = self.createButton(QStyle.SP_MediaPlay,
                                                  iconSize,
                                                  "Play",
                                                  self.playpause)
-        self.fwdButton = self.createButton(QtGui.QStyle.SP_MediaSeekForward,
+        self.fwdButton = self.createButton(QStyle.SP_MediaSeekForward,
                                            iconSize,
                                            "SeekForward",
                                            self.seekforward)
 
-        self.rewButton = self.createButton(QtGui.QStyle.SP_MediaSeekBackward,
+        self.rewButton = self.createButton(QStyle.SP_MediaSeekBackward,
                                            iconSize,
                                            "SeekBackward",
                                            self.seekbackward)
 
     def createButton(self, style, size, tip, cfunc):
-        button = QtGui.QToolButton()
+        button = QToolButton()
         button.setIcon(self.style().standardIcon(style))
         button.setIconSize(size)
         button.setToolTip(tip)
@@ -490,11 +495,11 @@ class MediaBox(DockBox):
         if self.playPauseButton.toolTip() == 'Play':
             self.playPauseButton.setToolTip("Pause")
             self.playPauseButton.setIcon(
-                self.style().standardIcon(QtGui.QStyle.SP_MediaPause))
+                self.style().standardIcon(QStyle.SP_MediaPause))
         else:
             self.playPauseButton.setToolTip("Play")
             self.playPauseButton.setIcon(
-                self.style().standardIcon(QtGui.QStyle.SP_MediaPlay))
+                self.style().standardIcon(QStyle.SP_MediaPlay))
         self.signal_playpause_changed.emit()
 
     def update_props(self):
@@ -503,7 +508,7 @@ class MediaBox(DockBox):
         etime = utils.get_dt(self.props.mem.variables['time'][-1])
         try:
             rtime = [utils.get_dt(item).strftime("%H:%M") for item in self.props.mem.variables['time'][1:-1]]
-        except ValueError:
+        except np.ma.core.MaskError:
             rtime = [str(item) for item in self.props.mem.variables['time'][1:-1]]
 
         self.range_start.clear()
@@ -559,13 +564,13 @@ class Properties(QtCore.QObject):
         #self.update_props()
 
     def set_datadir(self):
-        f = QtGui.QFileDialog.getExistingDirectory(self.parent,
+        f = QFileDialog.getExistingDirectory(self.parent,
                                                    "Select a Folder",
-                                                   "/automount/time_slider/radar/dwd",
-                                                   QtGui.QFileDialog.ShowDirsOnly)
+                                                   "/automount/radar/dwd_new",
+                                                   QFileDialog.ShowDirsOnly)
 
         if os.path.isdir(f):
-            conf["dirs"]["time_slider"] = str(f)
+            conf["dirs"]["data"] = str(f)
             try:
                 _ , meta = utils.read_dx(glob.glob(os.path.join(self.dir, "raa0*"))[0])
             except ValueError:
@@ -574,22 +579,25 @@ class Properties(QtCore.QObject):
             self.update_props()
 
     def save_conf(self):
-        name = QtGui.QFileDialog.getSaveFileName(self.parent, 'Save File')
+        name = QFileDialog.getSaveFileName(self.parent, 'Save File')
+        name = name[0]
         with open(name, "w") as f:
             conf.write(f)
 
     def open_conf(self):
-        name = QtGui.QFileDialog.getOpenFileName(self.parent, 'Open project')
+        name = QFileDialog.getOpenFileName(self.parent, 'Open project')
+        name = name[0]
         with open(name, "r") as f:
             conf.read_file(f)
         self.update_props()
 
     def load_data(self):
-        newfile = QtGui.QFileDialog.getOpenFileName(self.parent,
+        newfile = QFileDialog.getOpenFileName(self.parent,
                                                     'Save NetCDF File', '',
                                                     'netCDF (*.nc)')
         if self.mem is not None:
             self.mem.close()
+        newfile = newfile[0]
         self.mem = utils.open_ncdf(newfile)
         conf["source"]["product"] = self.mem.variables['data'].source
         # activate the correct canvas (grid or polar)
@@ -598,10 +606,11 @@ class Properties(QtCore.QObject):
         self.signal_props_changed.emit(0)
 
     def save_data(self):
-        newfile = QtGui.QFileDialog.getSaveFileName(self.parent,
+        newfile = QFileDialog.getSaveFileName(self.parent,
                                                     'Save NetCDF File',
                                                     '',
                                                     'netCDF (*.nc)')
+        newfile = newfile[0]
         oldfile = os.path.abspath(self.mem.filepath())
         self.mem.close()
         os.rename(oldfile, newfile)
@@ -639,7 +648,10 @@ class Properties(QtCore.QObject):
             Here we just add the metadata dictionaries
         '''
         mem = None
+
+
         data, meta = self.rfunc(self.filelist[0])
+
         mem = utils.create_ncdf('tmpfile.nc', meta, units='normal')
         utils.add_ncdf(mem, data, 0, meta)
         data, meta = self.rfunc(self.filelist[-1])
@@ -650,4 +662,3 @@ class Properties(QtCore.QObject):
     def add_data(self, pos):
         data, meta = self.rfunc(self.filelist[pos])
         utils.add_ncdf(self.mem, data, pos, meta)
-
