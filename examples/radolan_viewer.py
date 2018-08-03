@@ -5,9 +5,9 @@
 # -----------------------------------------------------------------------------
 #!/usr/bin/env python
 
-import sys
-
 from wradvis import gui
+import matplotlib
+matplotlib.use('Qt5Agg')
 
 if __name__ == '__main__':
-    gui.start(sys)
+    gui.start()
